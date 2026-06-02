@@ -4,6 +4,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Gov.br typography — Raleway is the official open-source pairing for Rawline */
+@import url("https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&display=swap");
+
 /*
  * Design system definition.
  *
@@ -64,29 +67,37 @@
 }
 
 :root {
-  /* Gov.br inspired sober institutional palette */
-  --radius: 0.25rem;
-  --background: oklch(0.97 0.005 250);
-  --foreground: oklch(0.22 0.02 255);
+  /* Gov.br Design System tokens
+   * Primary  #1351B4  (blue-warm-vivid-70)
+   * Hover    #2670E8  (blue-warm-vivid-60)
+   * Active   #071D41  (blue-warm-vivid-90 / pure-0 contrast)
+   * Surface  #F8F8F8  (gray-2)
+   * Border   #CCCCCC  (gray-20)
+   * Text     #333333  (gray-80)
+   * Yellow   #FFCD07  (yellow-vivid-20) — action accent
+   */
+  --radius: 9999px;
+  --background: oklch(0.975 0 0);            /* #F8F8F8 */
+  --foreground: oklch(0.28 0 0);             /* #333333 */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.02 255);
+  --card-foreground: oklch(0.28 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.02 255);
-  --primary: oklch(0.36 0.13 256);
+  --popover-foreground: oklch(0.28 0 0);
+  --primary: oklch(0.45 0.16 263);           /* #1351B4 */
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.94 0.008 250);
-  --secondary-foreground: oklch(0.28 0.03 255);
-  --muted: oklch(0.95 0.006 250);
-  --muted-foreground: oklch(0.48 0.015 255);
-  --accent: oklch(0.86 0.16 92);
-  --accent-foreground: oklch(0.25 0.04 90);
-  --destructive: oklch(0.55 0.18 27);
+  --secondary: oklch(0.96 0.005 250);
+  --secondary-foreground: oklch(0.28 0.02 260);
+  --muted: oklch(0.955 0.003 250);
+  --muted-foreground: oklch(0.48 0.01 260);
+  --accent: oklch(0.88 0.17 90);             /* #FFCD07 */
+  --accent-foreground: oklch(0.25 0.05 80);
+  --destructive: oklch(0.55 0.2 27);
   --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.52 0.12 150);
-  --warning: oklch(0.78 0.15 85);
-  --border: oklch(0.88 0.01 250);
-  --input: oklch(0.9 0.008 250);
-  --ring: oklch(0.45 0.13 256);
+  --success: oklch(0.55 0.13 150);
+  --warning: oklch(0.78 0.16 85);
+  --border: oklch(0.86 0.003 260);           /* #CCCCCC */
+  --input: oklch(0.88 0.003 260);
+  --ring: oklch(0.45 0.16 263);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -135,6 +146,17 @@
   --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+}
+
+@layer base {
+  html, body {
+    font-family: "Raleway", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-feature-settings: "ss01";
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Raleway", system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
 }
 
 @layer base {
