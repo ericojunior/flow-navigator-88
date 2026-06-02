@@ -64,10 +64,10 @@ export function FlowSidebar({
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`inline-flex items-center gap-1 border px-1.5 py-1 text-[11px] ${
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
                 active
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                  : "border-border bg-card text-primary hover:bg-secondary"
               }`}
             >
               <f.icon className="h-3 w-3" />
