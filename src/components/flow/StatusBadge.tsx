@@ -8,16 +8,16 @@ const labels: Record<QuestionStatus, string> = {
 };
 
 const styles: Record<QuestionStatus, string> = {
-  active: "bg-muted text-muted-foreground border-border",
-  orphan: "bg-muted text-destructive border-destructive/40",
-  final: "bg-muted text-foreground border-border",
-  loop: "bg-muted text-warning border-warning/50",
+  active: "bg-primary text-primary-foreground border-primary",
+  orphan: "bg-card text-destructive border-destructive/50",
+  final: "bg-secondary text-foreground border-border",
+  loop: "bg-card text-warning border-warning/60",
 };
 
 export function StatusBadge({ status }: { status: QuestionStatus }) {
   return (
     <span
-      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] uppercase tracking-wide border ${styles[status]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide border ${styles[status]}`}
     >
       {labels[status]}
     </span>
