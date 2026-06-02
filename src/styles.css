@@ -76,7 +76,7 @@
    * Text     #333333  (gray-80)
    * Yellow   #FFCD07  (yellow-vivid-20) — action accent
    */
-  --radius: 9999px;
+  --radius: 0.25rem;
   --background: oklch(0.975 0 0);            /* #F8F8F8 */
   --foreground: oklch(0.28 0 0);             /* #333333 */
   --card: oklch(1 0 0);
