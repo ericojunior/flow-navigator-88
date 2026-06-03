@@ -386,16 +386,24 @@ function GovBrTopBar() {
         </div>
         <div className="flex items-center gap-6">
           <nav className="hidden items-center gap-5 text-sm font-medium text-primary md:flex">
-            <a className="hover:underline" href="#">Órgãos do Governo</a>
-            <a className="hover:underline" href="#">Acesso à Informação</a>
-            <a className="hover:underline" href="#">Legislação</a>
-            <a className="hover:underline" href="#">Acessibilidade</a>
+            <a className="underline underline-offset-4 hover:opacity-80" href="#">Órgãos do Governo</a>
+            <a className="underline underline-offset-4 hover:opacity-80" href="#">Acesso à Informação</a>
+            <a className="underline underline-offset-4 hover:opacity-80" href="#">Legislação</a>
+            <a className="underline underline-offset-4 hover:opacity-80" href="#">Acessibilidade</a>
           </nav>
-          <div className="flex items-center gap-2 text-primary">
-            <button aria-label="Acessibilidade" className="rounded-full border border-primary p-1.5 hover:bg-primary/10">
+          <div className="flex items-center gap-2">
+            <button
+              aria-label="Acessibilidade"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-foreground hover:opacity-80"
+              style={{ backgroundColor: "#FFCD07" }}
+            >
               <Accessibility className="h-3.5 w-3.5" />
             </button>
-            <button aria-label="Contraste" className="rounded-full border border-primary p-1.5 hover:bg-primary/10">
+            <button
+              aria-label="Contraste"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-white hover:opacity-80"
+              style={{ backgroundColor: "#1351B4" }}
+            >
               <Contrast className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -503,12 +511,16 @@ function Footer() {
           <span style={{ color: "#FFCD07" }}>.</span>
           <span style={{ color: "#FFFFFF" }}>br</span>
         </span>
-        <div className="flex items-center gap-3 text-right">
-          <div className="text-sm font-extrabold tracking-wide">ANS</div>
-          <div className="text-[10px] leading-tight text-white/80">
-            Agência Nacional de
-            <br />
-            Saúde Suplementar
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-12 w-12 items-center justify-center rounded-full text-base font-extrabold tracking-tight"
+            style={{ backgroundColor: "#FFFFFF", color: "#0B2A5B" }}
+          >
+            ANS
+          </div>
+          <div className="text-[11px] leading-tight text-white">
+            <div className="font-semibold">Agência Nacional de</div>
+            <div>Saúde Suplementar</div>
           </div>
         </div>
       </div>
