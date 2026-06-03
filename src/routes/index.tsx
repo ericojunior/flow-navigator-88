@@ -9,6 +9,7 @@ import { CommandPalette } from "@/components/flow/CommandPalette";
 import { DiagnosticPanel } from "@/components/flow/DiagnosticPanel";
 import { Simulator } from "@/components/flow/Simulator";
 import { MiniMap } from "@/components/flow/MiniMap";
+import { TreeView } from "@/components/flow/TreeView";
 import {
   ChevronLeft,
   ChevronRight,
@@ -26,6 +27,7 @@ import {
   ChevronDown,
   Accessibility,
   Contrast,
+  Network,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -53,6 +55,7 @@ function EditorPage() {
   const [railOffset, setRailOffset] = useState(0); // 0 = end of path; positive = look back
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [simOpen, setSimOpen] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab>("properties");
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
@@ -147,6 +150,7 @@ function EditorPage() {
       <div className="mx-auto w-full max-w-[1400px] px-6 pt-6">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <ToolbarPill onClick={() => setSimOpen(true)} icon={<PlayCircle className="h-3.5 w-3.5" />} label="Simular" />
+          <ToolbarPill onClick={() => setTreeOpen(true)} icon={<Network className="h-3.5 w-3.5" />} label="Ver árvore" />
           <ToolbarPill onClick={handleValidate} icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Validar" />
           <ToolbarPill onClick={renumberByFlow} icon={<ListOrdered className="h-3.5 w-3.5" />} label="Renumerar" />
           <ToolbarPill onClick={handleSave} icon={<Save className="h-3.5 w-3.5" />} label="Salvar" />
@@ -316,6 +320,17 @@ function EditorPage() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onSelect={navigateTo} />
       {simOpen && <Simulator onClose={() => setSimOpen(false)} />}
+      {treeOpen && (
+        <TreeView
+          rootId={flow.rootId}
+          currentId={currentId}
+          onSelect={(id) => {
+            navigateTo(id);
+            setTreeOpen(false);
+          }}
+          onClose={() => setTreeOpen(false)}
+        />
+      )}
     </div>
   );
 }
