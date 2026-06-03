@@ -255,7 +255,7 @@ export function TreeView({
     <div
       className={
         inline
-          ? "flex flex-col rounded border border-border bg-card overflow-hidden h-[640px]"
+          ? "flex flex-col rounded border border-border bg-card overflow-hidden h-[78vh] min-h-[600px]"
           : "fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur"
       }
     >
