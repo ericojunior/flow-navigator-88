@@ -328,15 +328,44 @@ export function TreeView({
             {layout.edges.map((e, i) => {
               const midY = (e.fromY + e.toY) / 2;
               const path = `M ${e.fromX} ${e.fromY} L ${e.fromX} ${midY} L ${e.toX} ${midY} L ${e.toX} ${e.toY}`;
+              const color = markerColor(e.marker);
+              const label = (e.label || "").slice(0, 28);
+              const labelW = Math.max(40, label.length * 5.5 + 12);
+              const labelX = e.toX - labelW / 2;
+              const labelY = midY + 4;
               return (
-                <path
-                  key={i}
-                  d={path}
-                  fill="none"
-                  stroke={markerColor(e.marker)}
-                  strokeWidth={1.2}
-                  opacity={0.7}
-                />
+                <g key={i}>
+                  <path
+                    d={path}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={1.2}
+                    opacity={0.7}
+                  />
+                  {label && (
+                    <g transform={`translate(${labelX}, ${labelY - 9})`}>
+                      <rect
+                        width={labelW}
+                        height={14}
+                        rx={7}
+                        fill="#FFFFFF"
+                        stroke={color}
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={labelW / 2}
+                        y={10}
+                        textAnchor="middle"
+                        fontFamily="Raleway, sans-serif"
+                        fontSize={9}
+                        fontWeight={600}
+                        fill="#1F2937"
+                      >
+                        {label}
+                      </text>
+                    </g>
+                  )}
+                </g>
               );
             })}
             {layout.nodes.map((n, idx) => {
