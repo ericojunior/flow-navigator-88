@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useFlow, getStatus } from "@/lib/flow-store";
 import { X, ZoomIn, ZoomOut, Maximize2, Search } from "lucide-react";
 
@@ -136,22 +136,101 @@ export function TreeView({
   const flow = useFlow((s) => s.flow);
   const [zoom, setZoom] = useState(0.7);
   const [search, setSearch] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [pan, setPan] = useState({ x: 40, y: 40 });
+  const panningRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
 
   const layout = useMemo(() => computeLayout(flow, rootId), [flow, rootId]);
 
   // center current node on open
   useEffect(() => {
-    const t = setTimeout(() => {
-      const target = layout.nodes.find((n) => n.id === currentId);
-      if (target && scrollRef.current) {
-        const el = scrollRef.current;
-        el.scrollLeft = target.x * zoom - el.clientWidth / 2 + (NODE_W * zoom) / 2;
-        el.scrollTop = target.y * zoom - el.clientHeight / 2 + (NODE_H * zoom) / 2;
-      }
-    }, 50);
-    return () => clearTimeout(t);
+    const target = layout.nodes.find((n) => n.id === currentId);
+    const el = viewportRef.current;
+    if (target && el) {
+      setPan({
+        x: el.clientWidth / 2 - (target.x + NODE_W / 2) * zoom,
+        y: el.clientHeight / 2 - (target.y + NODE_H / 2) * zoom,
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const el = viewportRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const delta = -e.deltaY * 0.0015;
+      setZoom((z) => {
+        const nz = Math.min(2, Math.max(0.15, z * (1 + delta)));
+        const ratio = nz / z;
+        setPan((p) => ({
+          x: mx - (mx - p.x) * ratio,
+          y: my - (my - p.y) * ratio,
+        }));
+        return nz;
+      });
+    },
+    []
+  );
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("[data-node]")) return;
+    panningRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+    setIsPanning(true);
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    const p = panningRef.current;
+    if (!p) return;
+    setPan({ x: p.px + (e.clientX - p.x), y: p.py + (e.clientY - p.y) });
+  };
+  const endPan = () => {
+    panningRef.current = null;
+    setIsPanning(false);
+  };
+
+  const resetView = () => {
+    const el = viewportRef.current;
+    const target = layout.nodes.find((n) => n.id === currentId);
+    if (!el) return;
+    const z = 0.7;
+    setZoom(z);
+    if (target) {
+      setPan({
+        x: el.clientWidth / 2 - (target.x + NODE_W / 2) * z,
+        y: el.clientHeight / 2 - (target.y + NODE_H / 2) * z,
+      });
+    } else {
+      setPan({ x: 40, y: 40 });
+    }
+  };
+
+  // attach non-passive wheel listener so preventDefault works
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const delta = -e.deltaY * 0.0015;
+      setZoom((z) => {
+        const nz = Math.min(2, Math.max(0.15, z * (1 + delta)));
+        const ratio = nz / z;
+        setPan((p) => ({
+          x: mx - (mx - p.x) * ratio,
+          y: my - (my - p.y) * ratio,
+        }));
+        return nz;
+      });
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
   }, []);
 
   const matches = useMemo(() => {
@@ -179,8 +258,7 @@ export function TreeView({
             Visualização em árvore
           </div>
           <div className="text-xs text-muted-foreground">
-            Rede completa do fluxo · {Object.keys(flow.questions).length} perguntas · clique em uma
-            pergunta para abri-la no editor
+            Rede completa do fluxo · {Object.keys(flow.questions).length} perguntas · arraste para mover · use o scroll para dar zoom · clique numa pergunta para abrir
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -192,32 +270,6 @@ export function TreeView({
               placeholder="Localizar por ID ou título"
               className="w-64 rounded-full border border-input bg-background py-1.5 pl-8 pr-3 text-xs outline-none focus:border-ring"
             />
-          </div>
-          <div className="flex items-center gap-1 rounded-full border border-border bg-card px-1 py-1">
-            <button
-              onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}
-              className="rounded-full p-1 text-primary hover:bg-secondary"
-              aria-label="diminuir zoom"
-            >
-              <ZoomOut className="h-3.5 w-3.5" />
-            </button>
-            <span className="px-1 text-xs font-mono text-muted-foreground">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              onClick={() => setZoom((z) => Math.min(2, z + 0.1))}
-              className="rounded-full p-1 text-primary hover:bg-secondary"
-              aria-label="aumentar zoom"
-            >
-              <ZoomIn className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setZoom(1)}
-              className="rounded-full p-1 text-primary hover:bg-secondary"
-              aria-label="redefinir zoom"
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-            </button>
           </div>
           <button
             onClick={onClose}
@@ -238,17 +290,28 @@ export function TreeView({
       </div>
 
       {/* Canvas */}
-      <div ref={scrollRef} className="flex-1 overflow-auto bg-secondary/30">
+      <div
+        ref={viewportRef}
+        className="relative flex-1 overflow-hidden bg-secondary/30 select-none"
+        style={{ cursor: isPanning ? "grabbing" : "grab" }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={endPan}
+        onMouseLeave={endPan}
+      >
         <div
           style={{
-            width: layout.width * zoom,
-            height: layout.height * zoom,
-            position: "relative",
+            position: "absolute",
+            left: 0,
+            top: 0,
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "0 0",
+            willChange: "transform",
           }}
         >
           <svg
-            width={layout.width * zoom}
-            height={layout.height * zoom}
+            width={layout.width}
+            height={layout.height}
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             style={{ display: "block" }}
           >
@@ -291,9 +354,12 @@ export function TreeView({
               return (
                 <g
                   key={`${n.id}-${idx}`}
+                  data-node="1"
                   transform={`translate(${n.x}, ${n.y})`}
                   style={{ cursor: q ? "pointer" : "not-allowed" }}
-                  onClick={() => {
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (q) onSelect(n.id);
                   }}
                 >
@@ -339,6 +405,38 @@ export function TreeView({
               );
             })}
           </svg>
+        </div>
+
+        {/* Floating controls inside the canvas */}
+        <div className="pointer-events-auto absolute bottom-4 right-4 flex items-center gap-1 rounded-full border border-border bg-card/95 px-1.5 py-1 shadow-sm backdrop-blur">
+          <button
+            onClick={() => setZoom((z) => Math.max(0.15, z - 0.1))}
+            className="rounded-full p-1.5 text-primary hover:bg-secondary"
+            aria-label="diminuir zoom"
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <span className="min-w-[3rem] px-1 text-center text-xs font-mono text-muted-foreground">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            onClick={() => setZoom((z) => Math.min(2, z + 0.1))}
+            className="rounded-full p-1.5 text-primary hover:bg-secondary"
+            aria-label="aumentar zoom"
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={resetView}
+            className="rounded-full p-1.5 text-primary hover:bg-secondary"
+            aria-label="centralizar na pergunta atual"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="pointer-events-none absolute bottom-4 left-4 rounded-md border border-border bg-card/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm">
+          Arraste para mover · Scroll para zoom
         </div>
       </div>
     </div>
