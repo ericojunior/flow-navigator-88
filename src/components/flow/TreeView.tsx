@@ -127,11 +127,13 @@ export function TreeView({
   currentId,
   onSelect,
   onClose,
+  inline = false,
 }: {
   rootId: number;
   currentId: number;
   onSelect: (id: number) => void;
   onClose: () => void;
+  inline?: boolean;
 }) {
   const flow = useFlow((s) => s.flow);
   const [zoom, setZoom] = useState(0.7);
@@ -250,7 +252,13 @@ export function TreeView({
   }, [search, layout, flow]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur">
+    <div
+      className={
+        inline
+          ? "flex flex-col rounded border border-border bg-card overflow-hidden h-[640px]"
+          : "fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur"
+      }
+    >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
         <div>
