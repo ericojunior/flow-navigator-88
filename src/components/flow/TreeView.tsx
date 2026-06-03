@@ -16,6 +16,7 @@ interface Edge {
   toX: number;
   toY: number;
   marker: string;
+  label: string;
 }
 
 const NODE_W = 130;
@@ -47,7 +48,7 @@ function computeLayout(
 
     const children = q.answers
       .filter((a) => a.target !== "end" && typeof a.target === "number")
-      .map((a) => ({ tid: a.target as number, marker: a.marker }));
+      .map((a) => ({ tid: a.target as number, marker: a.marker, text: a.text }));
 
     if (children.length === 0) {
       nodes.push({ id, x: xOffset, y: depth * (NODE_H + V_GAP) });
@@ -80,6 +81,7 @@ function computeLayout(
         toX: cx,
         toY: (depth + 1) * (NODE_H + V_GAP),
         marker: child.marker,
+        label: child.text,
       });
     }
     return totalW;
