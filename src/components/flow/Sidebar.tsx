@@ -90,8 +90,8 @@ export function FlowSidebar({
               <li key={id}>
                 <button
                   onClick={() => onSelect(id)}
-                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-secondary ${
-                    active ? "bg-secondary" : ""
+                  className={`flex w-full items-center gap-3 border-l-2 px-3 py-2.5 text-left text-sm hover:bg-secondary ${
+                    active ? "border-primary bg-secondary font-semibold" : "border-transparent"
                   }`}
                 >
                   <span
