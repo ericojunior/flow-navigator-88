@@ -12,7 +12,7 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
   const removeAnswer = useFlow((s) => s.removeAnswer);
 
   if (!q) {
-    return <aside className="w-80 border-l border-border bg-card p-4 text-xs text-muted-foreground">Selecione uma pergunta.</aside>;
+    return <div className="p-4 text-xs text-muted-foreground">Selecione uma pergunta.</div>;
   }
 
   const markers: AnswerMarker[] = ["normal", "positive", "negative", "warning"];
@@ -24,15 +24,19 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
   };
 
   return (
-    <aside className="flex h-full w-80 flex-col border-l border-border bg-card">
+    <div className="flex flex-col bg-card">
       <div className="border-b border-border px-4 py-3">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Propriedades</div>
-        <div className="mt-1 flex items-center gap-2">
-          <span className="font-mono text-sm text-primary">#{q.id}</span>
-          <span className="truncate text-sm">{q.title}</span>
+        <div className="flex items-center gap-2">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-primary"
+            style={{ backgroundColor: "#E6EEFB" }}
+          >
+            {q.id}
+          </span>
+          <span className="truncate text-sm font-medium text-foreground">{q.title}</span>
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="max-h-[700px] overflow-auto p-4 space-y-4">
         <div>
           <label className="mb-1 block text-xs font-medium text-foreground">Título</label>
           <input
@@ -124,6 +128,6 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
           </ul>
         </div>
       </div>
-    </aside>
+    </div>
   );
 }
