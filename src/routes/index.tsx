@@ -180,11 +180,13 @@ function EditorPage() {
       {/* Three column working area */}
       <div className="mx-auto w-full max-w-[1400px] px-6 py-6 flex-1">
         <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-3">
-            <FlowSidebar currentId={currentId} onSelect={navigateTo} />
-          </div>
+          {!treeOpen && (
+            <div className="col-span-3">
+              <FlowSidebar currentId={currentId} onSelect={navigateTo} />
+            </div>
+          )}
 
-          <div className="col-span-6 flex flex-col">
+          <div className={`${treeOpen ? "col-span-12" : "col-span-6"} flex flex-col`}>
           <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-normal text-foreground">
@@ -313,6 +315,7 @@ function EditorPage() {
           </div>
 
           {/* Right panel */}
+          {!treeOpen && (
           <div className="col-span-3">
             <div className="rounded border border-border bg-card">
               <div className="flex border-b border-border">
@@ -336,6 +339,7 @@ function EditorPage() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
 
