@@ -45,15 +45,15 @@ export function FlowSidebar({
   ];
 
   return (
-    <aside className="flex h-full w-72 flex-col border-r border-border bg-card">
+    <aside className="flex h-full w-full flex-col rounded border border-border bg-card">
       <div className="border-b border-border p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por ID, título ou resposta"
-            className="w-full border border-input bg-background py-1.5 pl-7 pr-2 text-xs outline-none focus:border-ring"
+            placeholder="Buscar por ID, Título ou Respostas"
+            className="w-full rounded-full border border-input bg-background py-2 pl-8 pr-3 text-xs outline-none focus:border-ring"
           />
         </div>
       </div>
@@ -79,24 +79,32 @@ export function FlowSidebar({
           );
         })}
       </div>
-      <div className="flex-1 overflow-auto">
-        <ul className="divide-y divide-border">
+      <div className="max-h-[640px] flex-1 overflow-auto">
+        <ul>
           {ids.map((id) => {
             const ques = flow.questions[id];
             const status = getStatus(flow, id);
             const active = id === currentId;
+            const isFinal = status === "final";
             return (
               <li key={id}>
                 <button
                   onClick={() => onSelect(id)}
-                  className={`flex w-full items-start gap-2 px-3 py-2 text-left text-xs hover:bg-secondary ${
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-secondary ${
                     active ? "bg-secondary" : ""
                   }`}
                 >
-                  <span className="font-mono text-primary">#{id}</span>
-                  <span className="flex-1 truncate">{ques.title}</span>
-                  {status !== "active" && (
-                    <span className="text-[10px] uppercase text-muted-foreground">{status}</span>
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-primary"
+                    style={{ backgroundColor: "#E6EEFB" }}
+                  >
+                    {id}
+                  </span>
+                  <span className="flex-1 truncate text-foreground">{ques.title}</span>
+                  {isFinal && (
+                    <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Final
+                    </span>
                   )}
                 </button>
               </li>
