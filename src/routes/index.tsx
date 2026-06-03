@@ -177,7 +177,7 @@ function EditorPage() {
           </div>
 
           <div className="col-span-6 flex flex-col">
-            <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-normal text-foreground">Trilho do fluxo</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -209,12 +209,6 @@ function EditorPage() {
                   className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-primary disabled:opacity-40 hover:bg-secondary"
                 >
                   Ver próximos <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setPaletteOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-primary hover:bg-secondary"
-                >
-                  <Command className="h-3 w-3" /> Ir para pergunta
                 </button>
               </div>
               <div className="text-[11px] text-muted-foreground">
