@@ -7,6 +7,13 @@ interface LaidOutNode {
   x: number;
   y: number;
   duplicate?: boolean;
+  /** Synthetic terminal node representing an end-answer with a classification. */
+  terminal?: {
+    key: string;
+    label: string;
+    marker: string;
+    code?: string;
+  };
 }
 interface Edge {
   fromId: number;
@@ -31,6 +38,8 @@ function computeLayout(
   const nodes: LaidOutNode[] = [];
   const edges: Edge[] = [];
   const seen = new Set<number>();
+  const classifications = flow.classifications ?? [];
+  let terminalCounter = 0;
 
   // returns subtree width in "slots" (multiples of NODE_W + H_GAP)
   function place(id: number, depth: number, xOffset: number): number {
@@ -46,9 +55,25 @@ function computeLayout(
     }
     seen.add(id);
 
-    const children = q.answers
-      .filter((a) => a.target !== "end" && typeof a.target === "number")
-      .map((a) => ({ tid: a.target as number, marker: a.marker, text: a.text }));
+    type Child =
+      | { kind: "q"; tid: number; marker: string; text: string }
+      | { kind: "end"; terminalId: number; marker: string; text: string; classifName?: string; classifCode?: string; classifMarker?: string };
+
+    const children: Child[] = q.answers.map((a): Child => {
+      if (a.target === "end") {
+        const c = a.classificationId ? classifications.find((x) => x.id === a.classificationId) : null;
+        return {
+          kind: "end",
+          terminalId: ++terminalCounter,
+          marker: a.marker,
+          text: a.text,
+          classifName: c?.name,
+          classifCode: c?.code,
+          classifMarker: c?.marker,
+        };
+      }
+      return { kind: "q", tid: a.target as number, marker: a.marker, text: a.text };
+    });
 
     if (children.length === 0) {
       nodes.push({ id, x: xOffset, y: depth * (NODE_H + V_GAP) });
@@ -59,7 +84,25 @@ function computeLayout(
     const childCenters: number[] = [];
     for (const child of children) {
       const start = cursor;
-      const w = place(child.tid, depth + 1, cursor);
+      let w: number;
+      if (child.kind === "q") {
+        w = place(child.tid, depth + 1, cursor);
+      } else {
+        // synthetic terminal node
+        w = NODE_W + H_GAP;
+        const key = `end-${id}-${child.terminalId}`;
+        nodes.push({
+          id: -child.terminalId - 1_000_000, // negative synthetic id, kept stable per layout
+          x: cursor,
+          y: (depth + 1) * (NODE_H + V_GAP),
+          terminal: {
+            key,
+            label: child.classifName ?? "Encerrar fluxo",
+            marker: child.classifMarker ?? "normal",
+            code: child.classifCode,
+          },
+        });
+      }
       const center = start + w / 2;
       childCenters.push(center);
       cursor += w;
@@ -75,7 +118,7 @@ function computeLayout(
       const cx = childCenters[i] - H_GAP / 2;
       edges.push({
         fromId: id,
-        toId: child.tid,
+        toId: child.kind === "q" ? child.tid : -child.terminalId - 1_000_000,
         fromX: myCenter - H_GAP / 2,
         fromY: myY + NODE_H,
         toX: cx,
