@@ -412,10 +412,54 @@ export function TreeView({
               );
             })}
             {layout.nodes.map((n, idx) => {
+              if (n.terminal) {
+                const tcolor = markerColor(n.terminal.marker);
+                return (
+                  <g
+                    key={`t-${n.terminal.key}-${idx}`}
+                    transform={`translate(${n.x}, ${n.y})`}
+                  >
+                    <rect
+                      width={NODE_W}
+                      height={NODE_H}
+                      rx={NODE_H / 2}
+                      fill="#FFFFFF"
+                      stroke={tcolor}
+                      strokeWidth={1.5}
+                      strokeDasharray="3 3"
+                    />
+                    <circle cx={14} cy={NODE_H / 2} r={5} fill={tcolor} />
+                    <text
+                      x={26}
+                      y={NODE_H / 2 - 4}
+                      fontFamily="Raleway, sans-serif"
+                      fontSize={10}
+                      fontWeight={700}
+                      fill={tcolor}
+                    >
+                      ENCERRA
+                    </text>
+                    <text
+                      x={26}
+                      y={NODE_H / 2 + 10}
+                      fontFamily="Raleway, sans-serif"
+                      fontSize={10}
+                      fill="#1F2937"
+                    >
+                      {n.terminal.label.slice(0, 16)}
+                    </text>
+                  </g>
+                );
+              }
               const q = flow.questions[n.id];
               const status = q ? getStatus(flow, n.id) : "orphan";
               const isCurrent = n.id === currentId;
               const isMatch = matches.has(n.id);
+              const hasNote = !!(q?.note && q.note.trim().length > 0);
+              const groupIds = q?.groupIds ?? [];
+              const groupColors = (flow.groups ?? [])
+                .filter((g) => groupIds.includes(g.id))
+                .map((g) => g.color);
               const fill = isCurrent
                 ? "#0B2A5B"
                 : status === "orphan"
@@ -454,6 +498,30 @@ export function TreeView({
                     strokeWidth={isMatch || isCurrent ? 2.5 : 1}
                     opacity={n.duplicate ? 0.55 : 1}
                   />
+                  {/* Group color band (left edge) */}
+                  {groupColors.length > 0 && (
+                    <g>
+                      {groupColors.slice(0, 3).map((c, gi) => (
+                        <rect
+                          key={gi}
+                          x={0}
+                          y={gi * (NODE_H / Math.min(3, groupColors.length))}
+                          width={3}
+                          height={NODE_H / Math.min(3, groupColors.length)}
+                          fill={c}
+                        />
+                      ))}
+                    </g>
+                  )}
+                  {/* Note indicator */}
+                  {hasNote && (
+                    <g transform={`translate(${NODE_W - 14}, 6)`}>
+                      <circle cx={4} cy={4} r={4} fill="#FFCD07" stroke="#1F2937" strokeWidth={0.6} />
+                      <text x={4} y={6.5} textAnchor="middle" fontSize={6} fontWeight={700} fill="#1F2937">
+                        N
+                      </text>
+                    </g>
+                  )}
                   <text
                     x={8}
                     y={16}
