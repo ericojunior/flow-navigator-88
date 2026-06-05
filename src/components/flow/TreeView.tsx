@@ -7,6 +7,13 @@ interface LaidOutNode {
   x: number;
   y: number;
   duplicate?: boolean;
+  /** Synthetic terminal node representing an end-answer with a classification. */
+  terminal?: {
+    key: string;
+    label: string;
+    marker: string;
+    code?: string;
+  };
 }
 interface Edge {
   fromId: number;
@@ -31,6 +38,8 @@ function computeLayout(
   const nodes: LaidOutNode[] = [];
   const edges: Edge[] = [];
   const seen = new Set<number>();
+  const classifications = flow.classifications ?? [];
+  let terminalCounter = 0;
 
   // returns subtree width in "slots" (multiples of NODE_W + H_GAP)
   function place(id: number, depth: number, xOffset: number): number {
@@ -46,9 +55,25 @@ function computeLayout(
     }
     seen.add(id);
 
-    const children = q.answers
-      .filter((a) => a.target !== "end" && typeof a.target === "number")
-      .map((a) => ({ tid: a.target as number, marker: a.marker, text: a.text }));
+    type Child =
+      | { kind: "q"; tid: number; marker: string; text: string }
+      | { kind: "end"; terminalId: number; marker: string; text: string; classifName?: string; classifCode?: string; classifMarker?: string };
+
+    const children: Child[] = q.answers.map((a): Child => {
+      if (a.target === "end") {
+        const c = a.classificationId ? classifications.find((x) => x.id === a.classificationId) : null;
+        return {
+          kind: "end",
+          terminalId: ++terminalCounter,
+          marker: a.marker,
+          text: a.text,
+          classifName: c?.name,
+          classifCode: c?.code,
+          classifMarker: c?.marker,
+        };
+      }
+      return { kind: "q", tid: a.target as number, marker: a.marker, text: a.text };
+    });
 
     if (children.length === 0) {
       nodes.push({ id, x: xOffset, y: depth * (NODE_H + V_GAP) });
@@ -59,7 +84,25 @@ function computeLayout(
     const childCenters: number[] = [];
     for (const child of children) {
       const start = cursor;
-      const w = place(child.tid, depth + 1, cursor);
+      let w: number;
+      if (child.kind === "q") {
+        w = place(child.tid, depth + 1, cursor);
+      } else {
+        // synthetic terminal node
+        w = NODE_W + H_GAP;
+        const key = `end-${id}-${child.terminalId}`;
+        nodes.push({
+          id: -child.terminalId - 1_000_000, // negative synthetic id, kept stable per layout
+          x: cursor,
+          y: (depth + 1) * (NODE_H + V_GAP),
+          terminal: {
+            key,
+            label: child.classifName ?? "Encerrar fluxo",
+            marker: child.classifMarker ?? "normal",
+            code: child.classifCode,
+          },
+        });
+      }
       const center = start + w / 2;
       childCenters.push(center);
       cursor += w;
@@ -75,7 +118,7 @@ function computeLayout(
       const cx = childCenters[i] - H_GAP / 2;
       edges.push({
         fromId: id,
-        toId: child.tid,
+        toId: child.kind === "q" ? child.tid : -child.terminalId - 1_000_000,
         fromX: myCenter - H_GAP / 2,
         fromY: myY + NODE_H,
         toX: cx,
@@ -369,10 +412,54 @@ export function TreeView({
               );
             })}
             {layout.nodes.map((n, idx) => {
+              if (n.terminal) {
+                const tcolor = markerColor(n.terminal.marker);
+                return (
+                  <g
+                    key={`t-${n.terminal.key}-${idx}`}
+                    transform={`translate(${n.x}, ${n.y})`}
+                  >
+                    <rect
+                      width={NODE_W}
+                      height={NODE_H}
+                      rx={NODE_H / 2}
+                      fill="#FFFFFF"
+                      stroke={tcolor}
+                      strokeWidth={1.5}
+                      strokeDasharray="3 3"
+                    />
+                    <circle cx={14} cy={NODE_H / 2} r={5} fill={tcolor} />
+                    <text
+                      x={26}
+                      y={NODE_H / 2 - 4}
+                      fontFamily="Raleway, sans-serif"
+                      fontSize={10}
+                      fontWeight={700}
+                      fill={tcolor}
+                    >
+                      ENCERRA
+                    </text>
+                    <text
+                      x={26}
+                      y={NODE_H / 2 + 10}
+                      fontFamily="Raleway, sans-serif"
+                      fontSize={10}
+                      fill="#1F2937"
+                    >
+                      {n.terminal.label.slice(0, 16)}
+                    </text>
+                  </g>
+                );
+              }
               const q = flow.questions[n.id];
               const status = q ? getStatus(flow, n.id) : "orphan";
               const isCurrent = n.id === currentId;
               const isMatch = matches.has(n.id);
+              const hasNote = !!(q?.note && q.note.trim().length > 0);
+              const groupIds = q?.groupIds ?? [];
+              const groupColors = (flow.groups ?? [])
+                .filter((g) => groupIds.includes(g.id))
+                .map((g) => g.color);
               const fill = isCurrent
                 ? "#0B2A5B"
                 : status === "orphan"
@@ -411,6 +498,30 @@ export function TreeView({
                     strokeWidth={isMatch || isCurrent ? 2.5 : 1}
                     opacity={n.duplicate ? 0.55 : 1}
                   />
+                  {/* Group color band (left edge) */}
+                  {groupColors.length > 0 && (
+                    <g>
+                      {groupColors.slice(0, 3).map((c, gi) => (
+                        <rect
+                          key={gi}
+                          x={0}
+                          y={gi * (NODE_H / Math.min(3, groupColors.length))}
+                          width={3}
+                          height={NODE_H / Math.min(3, groupColors.length)}
+                          fill={c}
+                        />
+                      ))}
+                    </g>
+                  )}
+                  {/* Note indicator */}
+                  {hasNote && (
+                    <g transform={`translate(${NODE_W - 14}, 6)`}>
+                      <circle cx={4} cy={4} r={4} fill="#FFCD07" stroke="#1F2937" strokeWidth={0.6} />
+                      <text x={4} y={6.5} textAnchor="middle" fontSize={6} fontWeight={700} fill="#1F2937">
+                        N
+                      </text>
+                    </g>
+                  )}
                   <text
                     x={8}
                     y={16}

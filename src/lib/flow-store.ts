@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Flow, Question, Answer, AnswerMarker } from "./flow-types";
+import type { Flow, Question, Answer, AnswerMarker, QuestionGroup, Classification } from "./flow-types";
 
 const initialQuestions: Question[] = [
   {
@@ -43,7 +43,20 @@ const initialQuestions: Question[] = [
 function buildFlow(qs: Question[]): Flow {
   const map: Record<number, Question> = {};
   qs.forEach((q) => (map[q.id] = q));
-  return { version: "0.1.0-rascunho", questions: map, rootId: qs[0]?.id ?? 1 };
+  return {
+    version: "0.1.0-rascunho",
+    questions: map,
+    rootId: qs[0]?.id ?? 1,
+    groups: [
+      { id: "g-cad", name: "Cadastro", color: "#1351B4" },
+      { id: "g-aten", name: "Atendimento", color: "#00A859" },
+    ],
+    classifications: [
+      { id: "c-apto", name: "Apto", marker: "positive", code: "APT-01", note: "Usuário cumpre todos os requisitos e pode prosseguir." },
+      { id: "c-inapto", name: "Inapto", marker: "negative", code: "INA-01", note: "Usuário não cumpre os requisitos. Encaminhar conforme protocolo." },
+      { id: "c-presencial", name: "Encaminhar presencial", marker: "warning", code: "ENC-01", note: "Solicitar comparecimento à unidade mais próxima." },
+    ],
+  };
 }
 
 interface FlowState {
@@ -57,6 +70,15 @@ interface FlowState {
   generateLargeFlow: (n?: number) => void;
   bumpVersion: () => void;
   renumberByFlow: () => void;
+  // Groups
+  addGroup: (name: string, color?: string) => string;
+  updateGroup: (id: string, patch: Partial<QuestionGroup>) => void;
+  removeGroup: (id: string) => void;
+  toggleQuestionGroup: (qid: number, gid: string) => void;
+  // Classifications
+  addClassification: (c?: Partial<Classification>) => string;
+  updateClassification: (id: string, patch: Partial<Classification>) => void;
+  removeClassification: (id: string) => void;
 }
 
 function nextId(flow: Flow): number {
@@ -203,6 +225,100 @@ export const useFlow = create<FlowState>((set, get) => ({
         };
       }
       return { flow: { ...flow, questions: newQs, rootId: remap[flow.rootId] ?? 1 } };
+    }),
+  // ---------- Groups ----------
+  addGroup: (name, color) => {
+    const id = `g-${Date.now().toString(36)}`;
+    const palette = ["#1351B4", "#00A859", "#C0392B", "#FFCD07", "#6B7280", "#8E44AD"];
+    set((s) => ({
+      flow: {
+        ...s.flow,
+        groups: [
+          ...(s.flow.groups ?? []),
+          { id, name: name.trim() || "Novo grupo", color: color || palette[(s.flow.groups?.length ?? 0) % palette.length] },
+        ],
+      },
+    }));
+    return id;
+  },
+  updateGroup: (id, patch) =>
+    set((s) => ({
+      flow: {
+        ...s.flow,
+        groups: (s.flow.groups ?? []).map((g) => (g.id === id ? { ...g, ...patch } : g)),
+      },
+    })),
+  removeGroup: (id) =>
+    set((s) => {
+      const questions = { ...s.flow.questions };
+      Object.keys(questions).map(Number).forEach((qid) => {
+        const q = questions[qid];
+        if (q.groupIds?.includes(id)) {
+          questions[qid] = { ...q, groupIds: q.groupIds.filter((g) => g !== id) };
+        }
+      });
+      return {
+        flow: {
+          ...s.flow,
+          questions,
+          groups: (s.flow.groups ?? []).filter((g) => g.id !== id),
+        },
+      };
+    }),
+  toggleQuestionGroup: (qid, gid) =>
+    set((s) => {
+      const q = s.flow.questions[qid];
+      if (!q) return s;
+      const current = q.groupIds ?? [];
+      const next = current.includes(gid) ? current.filter((g) => g !== gid) : [...current, gid];
+      return {
+        flow: {
+          ...s.flow,
+          questions: { ...s.flow.questions, [qid]: { ...q, groupIds: next } },
+        },
+      };
+    }),
+  // ---------- Classifications ----------
+  addClassification: (c) => {
+    const id = `c-${Date.now().toString(36)}`;
+    const created: Classification = {
+      id,
+      name: c?.name?.trim() || "Nova classificação",
+      marker: c?.marker ?? "normal",
+      code: c?.code,
+      note: c?.note ?? "",
+    };
+    set((s) => ({
+      flow: { ...s.flow, classifications: [...(s.flow.classifications ?? []), created] },
+    }));
+    return id;
+  },
+  updateClassification: (id, patch) =>
+    set((s) => ({
+      flow: {
+        ...s.flow,
+        classifications: (s.flow.classifications ?? []).map((c) =>
+          c.id === id ? { ...c, ...patch } : c
+        ),
+      },
+    })),
+  removeClassification: (id) =>
+    set((s) => {
+      const questions = { ...s.flow.questions };
+      Object.keys(questions).map(Number).forEach((qid) => {
+        const q = questions[qid];
+        const answers = q.answers.map((a) =>
+          a.classificationId === id ? { ...a, classificationId: undefined, classificationNoteOverride: undefined } : a
+        );
+        questions[qid] = { ...q, answers };
+      });
+      return {
+        flow: {
+          ...s.flow,
+          questions,
+          classifications: (s.flow.classifications ?? []).filter((c) => c.id !== id),
+        },
+      };
     }),
 }));
 

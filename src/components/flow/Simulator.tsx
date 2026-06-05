@@ -1,26 +1,49 @@
 import { useState } from "react";
 import { useFlow } from "@/lib/flow-store";
 import { MarkerDot } from "./StatusBadge";
-import { X, RotateCcw, Undo2 } from "lucide-react";
+import { X, RotateCcw, Undo2, FileText } from "lucide-react";
 
 export function Simulator({ onClose }: { onClose: () => void }) {
   const flow = useFlow((s) => s.flow);
   const [path, setPath] = useState<number[]>([flow.rootId]);
   const [ended, setEnded] = useState(false);
+  const [endingAnswerId, setEndingAnswerId] = useState<string | null>(null);
   const current = path[path.length - 1];
   const q = flow.questions[current];
+  const classifications = flow.classifications ?? [];
+  const endingQuestion = ended ? flow.questions[path[path.length - 1]] : null;
+  const endingAnswer =
+    endingQuestion && endingAnswerId
+      ? endingQuestion.answers.find((a) => a.id === endingAnswerId)
+      : null;
+  const endingClassif = endingAnswer?.classificationId
+    ? classifications.find((c) => c.id === endingAnswer.classificationId)
+    : null;
+  const endingNote =
+    endingAnswer?.classificationNoteOverride ?? endingClassif?.note ?? "";
 
   const reset = () => {
     setPath([flow.rootId]);
     setEnded(false);
+    setEndingAnswerId(null);
   };
   const back = () => {
     if (ended) {
       setEnded(false);
+      setEndingAnswerId(null);
       return;
     }
     if (path.length > 1) setPath(path.slice(0, -1));
   };
+
+  const markerColor = (m?: string) =>
+    m === "positive"
+      ? "#00A859"
+      : m === "negative"
+        ? "#C0392B"
+        : m === "warning"
+          ? "#FFCD07"
+          : "#6B7280";
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/30 p-4">
@@ -46,8 +69,29 @@ export function Simulator({ onClose }: { onClose: () => void }) {
           {ended || !q ? (
             <div>
               <div className="text-sm font-medium text-foreground">Atendimento finalizado</div>
-              <div className="mt-1 text-xs text-muted-foreground">Caminho percorrido:</div>
-              <ol className="mt-3 space-y-1">
+              {endingClassif ? (
+                <div
+                  className="mt-3 border-l-4 bg-secondary/30 p-3"
+                  style={{ borderColor: markerColor(endingClassif.marker) }}
+                >
+                  <div className="flex items-center gap-2">
+                    <MarkerDot marker={endingClassif.marker} />
+                    <span className="text-sm font-semibold text-foreground">{endingClassif.name}</span>
+                    {endingClassif.code && (
+                      <span className="font-mono text-[10px] text-muted-foreground">{endingClassif.code}</span>
+                    )}
+                  </div>
+                  {endingNote && (
+                    <p className="mt-2 whitespace-pre-wrap text-xs text-foreground">{endingNote}</p>
+                  )}
+                </div>
+              ) : (
+                endingAnswer?.note && (
+                  <p className="mt-3 whitespace-pre-wrap text-xs text-foreground">{endingAnswer.note}</p>
+                )
+              )}
+              <div className="mt-4 text-xs text-muted-foreground">Caminho percorrido:</div>
+              <ol className="mt-2 space-y-1">
                 {path.map((id, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
                     <span className="font-mono text-xs text-primary">#{id}</span>
@@ -63,24 +107,48 @@ export function Simulator({ onClose }: { onClose: () => void }) {
               </div>
               <h2 className="mt-1 text-lg font-semibold text-foreground">{q.title}</h2>
               {q.description && <p className="mt-1 text-sm text-muted-foreground">{q.description}</p>}
+              {q.note && (
+                <div className="mt-3 flex gap-2 border border-border bg-secondary/40 p-2 text-xs text-foreground">
+                  <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                  <p className="whitespace-pre-wrap">{q.note}</p>
+                </div>
+              )}
               <ul className="mt-4 space-y-2">
-                {q.answers.map((a) => (
-                  <li key={a.id}>
-                    <button
-                      onClick={() => {
-                        if (a.target === "end") setEnded(true);
-                        else setPath([...path, a.target as number]);
-                      }}
-                      className="flex w-full items-center gap-3 border border-border bg-background px-3 py-2 text-left text-sm hover:border-primary hover:bg-secondary"
-                    >
-                      <MarkerDot marker={a.marker} />
-                      <span className="flex-1">{a.text}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {a.target === "end" ? "Encerrar fluxo" : `→ #${a.target}`}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                {q.answers.map((a) => {
+                  const classif = a.classificationId
+                    ? classifications.find((c) => c.id === a.classificationId)
+                    : null;
+                  return (
+                    <li key={a.id}>
+                      <button
+                        onClick={() => {
+                          if (a.target === "end") {
+                            setEndingAnswerId(a.id);
+                            setEnded(true);
+                          } else {
+                            setPath([...path, a.target as number]);
+                          }
+                        }}
+                        className="flex w-full flex-col gap-1 border border-border bg-background px-3 py-2 text-left text-sm hover:border-primary hover:bg-secondary"
+                      >
+                        <div className="flex w-full items-center gap-3">
+                          <MarkerDot marker={a.marker} />
+                          <span className="flex-1">{a.text}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {a.target === "end"
+                              ? classif
+                                ? `Encerrar · ${classif.name}`
+                                : "Encerrar fluxo"
+                              : `→ #${a.target}`}
+                          </span>
+                        </div>
+                        {a.note && (
+                          <span className="pl-6 text-[11px] text-muted-foreground">{a.note}</span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
               <div className="mt-6 border-t border-border pt-3 text-xs text-muted-foreground">
                 <span className="mr-2">Caminho:</span>
