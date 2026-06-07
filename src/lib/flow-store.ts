@@ -74,7 +74,7 @@ interface FlowState {
   addGroup: (name: string, color?: string) => string;
   updateGroup: (id: string, patch: Partial<QuestionGroup>) => void;
   removeGroup: (id: string) => void;
-  toggleQuestionGroup: (qid: number, gid: string) => void;
+  toggleAnswerGroup: (qid: number, aid: string, gid: string) => void;
   // Classifications
   addClassification: (c?: Partial<Classification>) => string;
   updateClassification: (id: string, patch: Partial<Classification>) => void;
@@ -253,9 +253,10 @@ export const useFlow = create<FlowState>((set, get) => ({
       const questions = { ...s.flow.questions };
       Object.keys(questions).map(Number).forEach((qid) => {
         const q = questions[qid];
-        if (q.groupIds?.includes(id)) {
-          questions[qid] = { ...q, groupIds: q.groupIds.filter((g) => g !== id) };
-        }
+        const answers = q.answers.map((a) =>
+          a.groupIds?.includes(id) ? { ...a, groupIds: a.groupIds.filter((g) => g !== id) } : a
+        );
+        questions[qid] = { ...q, answers };
       });
       return {
         flow: {
@@ -265,16 +266,20 @@ export const useFlow = create<FlowState>((set, get) => ({
         },
       };
     }),
-  toggleQuestionGroup: (qid, gid) =>
+  toggleAnswerGroup: (qid, aid, gid) =>
     set((s) => {
       const q = s.flow.questions[qid];
       if (!q) return s;
-      const current = q.groupIds ?? [];
-      const next = current.includes(gid) ? current.filter((g) => g !== gid) : [...current, gid];
+      const answers = q.answers.map((a) => {
+        if (a.id !== aid) return a;
+        const current = a.groupIds ?? [];
+        const next = current.includes(gid) ? current.filter((g) => g !== gid) : [...current, gid];
+        return { ...a, groupIds: next };
+      });
       return {
         flow: {
           ...s.flow,
-          questions: { ...s.flow.questions, [qid]: { ...q, groupIds: next } },
+          questions: { ...s.flow.questions, [qid]: { ...q, answers } },
         },
       };
     }),
