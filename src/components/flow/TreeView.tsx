@@ -303,8 +303,9 @@ export function TreeView({
     Object.values(flow.questions).forEach((q) => {
       q.answers.forEach((a) => {
         if (typeof a.target === "number" && a.groupIds && a.groupIds.length) {
-          (map[a.target] ||= new Set());
-          a.groupIds.forEach((gid) => map[a.target].add(gid));
+          const t = a.target;
+          if (!map[t]) map[t] = new Set<string>();
+          a.groupIds.forEach((gid) => map[t].add(gid));
         }
       });
     });
