@@ -146,22 +146,71 @@ function ClassificationRow({
               />
             </div>
           </div>
-          <div>
-            <label className="mb-0.5 block text-[10px] uppercase text-muted-foreground">Marcador / cor</label>
-            <select
-              value={c.marker}
-              onChange={(e) => onChange({ marker: e.target.value as AnswerMarker })}
-              className="w-full border border-input bg-background px-2 py-1 text-xs"
-            >
-              {markers.map((m) => (
-                <option key={m} value={m}>
-                  {markerLabels[m]}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-0.5 block text-[10px] uppercase text-muted-foreground">Marcador / cor</label>
+              <select
+                value={c.marker}
+                onChange={(e) => onChange({ marker: e.target.value as AnswerMarker })}
+                className="w-full border border-input bg-background px-2 py-1 text-xs"
+              >
+                {markers.map((m) => (
+                  <option key={m} value={m}>
+                    {markerLabels[m]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-0.5 block text-[10px] uppercase text-muted-foreground">Prioridade</label>
+              <select
+                value={c.priority ?? ""}
+                onChange={(e) =>
+                  onChange({ priority: (e.target.value || undefined) as Classification["priority"] })
+                }
+                className="w-full border border-input bg-background px-2 py-1 text-xs"
+              >
+                <option value="">—</option>
+                <option value="low">Baixa</option>
+                <option value="medium">Média</option>
+                <option value="high">Alta</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-0.5 block text-[10px] uppercase text-muted-foreground">Categoria (opcional)</label>
+              <input
+                value={c.category ?? ""}
+                onChange={(e) => onChange({ category: e.target.value || undefined })}
+                placeholder="Ex: Atendimento, Triagem…"
+                className="w-full border border-input bg-background px-2 py-1 text-xs outline-none focus:border-ring"
+              />
+            </div>
+            <div>
+              <label className="mb-0.5 block text-[10px] uppercase text-muted-foreground">Link externo (opcional)</label>
+              <input
+                value={c.link ?? ""}
+                onChange={(e) => onChange({ link: e.target.value || undefined })}
+                placeholder="https://…"
+                className="w-full border border-input bg-background px-2 py-1 text-xs outline-none focus:border-ring"
+              />
+            </div>
           </div>
           <div>
-            <label className="mb-0.5 block text-[10px] uppercase text-muted-foreground">Nota / observação</label>
+            <label className="mb-0.5 block text-[10px] uppercase text-muted-foreground">Descrição interna (opcional)</label>
+            <textarea
+              value={c.description ?? ""}
+              onChange={(e) => onChange({ description: e.target.value || undefined })}
+              rows={2}
+              placeholder="Detalhamento técnico / regra de negócio. Não exibido ao usuário."
+              className="w-full resize-none border border-input bg-background px-2 py-1 text-xs outline-none focus:border-ring"
+            />
+          </div>
+          <div>
+            <label className="mb-0.5 block text-[10px] uppercase text-muted-foreground">
+              Nota / observação (exibida ao usuário)
+            </label>
             <textarea
               value={c.note}
               onChange={(e) => onChange({ note: e.target.value })}
