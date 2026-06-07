@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useFlow, getStatus } from "@/lib/flow-store";
+import { getNotes } from "@/lib/flow-types";
 import { X, ZoomIn, ZoomOut, Maximize2, Search } from "lucide-react";
 
 interface LaidOutNode {
@@ -296,6 +297,23 @@ export function TreeView({
     return m;
   }, [search, layout, flow]);
 
+  // Aggregate group ids per question id from incoming answers (groups now live on answers)
+  const groupsByNode = useMemo(() => {
+    const map: Record<number, Set<string>> = {};
+    Object.values(flow.questions).forEach((q) => {
+      q.answers.forEach((a) => {
+        if (typeof a.target === "number" && a.groupIds && a.groupIds.length) {
+          const t = a.target;
+          if (!map[t]) map[t] = new Set<string>();
+          a.groupIds.forEach((gid) => map[t].add(gid));
+        }
+      });
+    });
+    return map;
+  }, [flow]);
+
+  const [notePopup, setNotePopup] = useState<{ id: number; x: number; y: number } | null>(null);
+
   return (
     <div
       className={
@@ -455,8 +473,10 @@ export function TreeView({
               const status = q ? getStatus(flow, n.id) : "orphan";
               const isCurrent = n.id === currentId;
               const isMatch = matches.has(n.id);
-              const hasNote = !!(q?.note && q.note.trim().length > 0);
-              const groupIds = q?.groupIds ?? [];
+              const qNotes = getNotes(q);
+              const aNotes = (q?.answers ?? []).flatMap((a) => getNotes(a));
+              const hasNote = qNotes.length + aNotes.length > 0;
+              const groupIds = Array.from(groupsByNode[n.id] ?? []);
               const groupColors = (flow.groups ?? [])
                 .filter((g) => groupIds.includes(g.id))
                 .map((g) => g.color);
@@ -515,10 +535,17 @@ export function TreeView({
                   )}
                   {/* Note indicator */}
                   {hasNote && (
-                    <g transform={`translate(${NODE_W - 14}, 6)`}>
-                      <circle cx={4} cy={4} r={4} fill="#FFCD07" stroke="#1F2937" strokeWidth={0.6} />
-                      <text x={4} y={6.5} textAnchor="middle" fontSize={6} fontWeight={700} fill="#1F2937">
-                        N
+                    <g
+                      transform={`translate(${NODE_W - 18}, 4)`}
+                      style={{ cursor: "pointer" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNotePopup({ id: n.id, x: n.x + NODE_W, y: n.y });
+                      }}
+                    >
+                      <rect width={14} height={14} rx={3} fill="#FFCD07" stroke="#1F2937" strokeWidth={0.6} />
+                      <text x={7} y={10.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="#1F2937">
+                        📝
                       </text>
                     </g>
                   )}
@@ -555,6 +582,58 @@ export function TreeView({
               );
             })}
           </svg>
+          {notePopup && (() => {
+            const q = flow.questions[notePopup.id];
+            if (!q) return null;
+            const qns = getNotes(q);
+            const answerNotes = q.answers
+              .map((a) => ({ a, notes: getNotes(a) }))
+              .filter((x) => x.notes.length > 0);
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  left: notePopup.x + 6,
+                  top: notePopup.y,
+                  width: 280,
+                  zIndex: 5,
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="border border-border bg-card shadow-lg"
+              >
+                <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-2 py-1 text-[11px] font-semibold">
+                  <span>Notas de #{q.id}</span>
+                  <button onClick={() => setNotePopup(null)} className="p-0.5 hover:bg-background">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                <div className="max-h-64 space-y-2 overflow-auto p-2 text-[11px]">
+                  {qns.length === 0 && answerNotes.length === 0 && (
+                    <p className="text-muted-foreground">Sem notas.</p>
+                  )}
+                  {qns.map((nt, i) => (
+                    <div key={`q-${i}`} className="border-l-2 border-primary/60 bg-secondary/30 p-1.5">
+                      <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
+                        Pergunta · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
+                      </div>
+                      <p className="whitespace-pre-wrap text-foreground">{nt.text || <span className="italic text-muted-foreground">(vazia)</span>}</p>
+                    </div>
+                  ))}
+                  {answerNotes.map(({ a, notes }) =>
+                    notes.map((nt, i) => (
+                      <div key={`a-${a.id}-${i}`} className="border-l-2 border-amber-400 bg-amber-50/60 p-1.5">
+                        <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
+                          Resposta "{a.text.slice(0, 20)}" · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
+                        </div>
+                        <p className="whitespace-pre-wrap text-foreground">{nt.text || <span className="italic text-muted-foreground">(vazia)</span>}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Floating controls inside the canvas */}
