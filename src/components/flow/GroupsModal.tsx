@@ -3,29 +3,33 @@ import { useFlow } from "@/lib/flow-store";
 import { X, Plus, Trash2, Check } from "lucide-react";
 
 export function GroupsModal({
-  questionId,
+  selectedIds,
+  onToggle,
+  title = "Grupos",
+  subtitle = "Marque os grupos a associar.",
   onClose,
 }: {
-  questionId: number;
+  selectedIds: string[];
+  onToggle: (gid: string) => void;
+  title?: string;
+  subtitle?: string;
   onClose: () => void;
 }) {
   const flow = useFlow((s) => s.flow);
   const addGroup = useFlow((s) => s.addGroup);
   const updateGroup = useFlow((s) => s.updateGroup);
   const removeGroup = useFlow((s) => s.removeGroup);
-  const toggleQuestionGroup = useFlow((s) => s.toggleQuestionGroup);
-  const q = flow.questions[questionId];
   const [name, setName] = useState("");
   const groups = flow.groups ?? [];
-  const selected = new Set(q?.groupIds ?? []);
+  const selected = new Set(selectedIds);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4" onClick={onClose}>
       <div className="w-full max-w-lg border border-border bg-card shadow-lg" onClick={(e) => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
-            <div className="text-sm font-semibold">Grupos de perguntas</div>
-            <div className="text-xs text-muted-foreground">Marque os grupos aos quais esta pergunta pertence.</div>
+            <div className="text-sm font-semibold">{title}</div>
+            <div className="text-xs text-muted-foreground">{subtitle}</div>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-secondary" aria-label="Fechar">
             <X className="h-4 w-4" />
@@ -38,7 +42,7 @@ export function GroupsModal({
               return (
                 <li key={g.id} className="flex items-center gap-2 border border-border bg-background px-2 py-1.5">
                   <button
-                    onClick={() => toggleQuestionGroup(questionId, g.id)}
+                    onClick={() => onToggle(g.id)}
                     className={`flex h-5 w-5 items-center justify-center border ${
                       on ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background"
                     }`}
