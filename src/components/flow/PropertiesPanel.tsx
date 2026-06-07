@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useFlow } from "@/lib/flow-store";
-import type { AnswerMarker } from "@/lib/flow-types";
-import { Trash2, Plus, Tags, FileText, Settings2 } from "lucide-react";
+import type { AnswerMarker, NoteEntry, NoteVisibility } from "@/lib/flow-types";
+import { getNotes } from "@/lib/flow-types";
+import { Trash2, Plus, Tags, FileText, Settings2, Eye, EyeOff, Globe } from "lucide-react";
 import { MarkerDot } from "./StatusBadge";
 import { GroupsModal } from "./GroupsModal";
 import { ClassificationsModal } from "./ClassificationsModal";
@@ -13,9 +14,10 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
   const updateAnswer = useFlow((s) => s.updateAnswer);
   const addAnswer = useFlow((s) => s.addAnswer);
   const removeAnswer = useFlow((s) => s.removeAnswer);
+  const toggleAnswerGroup = useFlow((s) => s.toggleAnswerGroup);
   const groups = flow.groups ?? [];
   const classifications = flow.classifications ?? [];
-  const [groupsOpen, setGroupsOpen] = useState(false);
+  const [groupsForAnswer, setGroupsForAnswer] = useState<string | null>(null);
   const [classifOpen, setClassifOpen] = useState(false);
   const [pickFor, setPickFor] = useState<string | null>(null); // answer id awaiting classification pick
 
@@ -30,7 +32,6 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
     negative: "Negativo",
     warning: "Atenção",
   };
-  const questionGroups = (q.groupIds ?? []).map((id) => groups.find((g) => g.id === id)).filter(Boolean);
 
   return (
     <div className="flex flex-col bg-card">
@@ -64,50 +65,11 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
           />
         </div>
 
-        <div>
-          <label className="mb-1 flex items-center gap-1 text-xs font-medium text-foreground">
-            <FileText className="h-3 w-3" /> Nota explicativa
-          </label>
-          <textarea
-            value={q.note ?? ""}
-            onChange={(e) => updateQuestion(q.id, { note: e.target.value })}
-            rows={2}
-            placeholder="Texto adicional exibido ao usuário ao chegar nesta pergunta."
-            className="w-full resize-none border border-input bg-background px-2 py-1.5 text-xs outline-none focus:border-ring"
-          />
-        </div>
-
-        <div>
-          <div className="mb-1 flex items-center justify-between">
-            <label className="flex items-center gap-1 text-xs font-medium text-foreground">
-              <Tags className="h-3 w-3" /> Grupos
-            </label>
-            <button
-              onClick={() => setGroupsOpen(true)}
-              className="inline-flex items-center gap-1 border border-border bg-background px-2 py-1 text-[11px] hover:bg-secondary"
-            >
-              <Settings2 className="h-3 w-3" /> Gerenciar
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {questionGroups.length === 0 && (
-              <span className="text-[11px] text-muted-foreground">Nenhum grupo associado.</span>
-            )}
-            {questionGroups.map(
-              (g) =>
-                g && (
-                  <span
-                    key={g.id}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                    style={{ backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}` }}
-                  >
-                    <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: g.color }} />
-                    {g.name}
-                  </span>
-                )
-            )}
-          </div>
-        </div>
+        <NotesEditor
+          notes={getNotes(q)}
+          onChange={(notes) => updateQuestion(q.id, { notes, note: undefined })}
+          label="Notas explicativas (pergunta)"
+        />
 
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -176,6 +138,40 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                {/* Groups for this answer (attached to the destination) */}
+                <div className="mt-2 border-t border-border pt-2">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
+                      <Tags className="h-3 w-3" /> Grupos do destino
+                    </span>
+                    <button
+                      onClick={() => setGroupsForAnswer(a.id)}
+                      className="inline-flex items-center gap-1 border border-border bg-background px-2 py-0.5 text-[11px] hover:bg-secondary"
+                    >
+                      <Settings2 className="h-3 w-3" /> Selecionar
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(a.groupIds ?? []).length === 0 && (
+                      <span className="text-[11px] text-muted-foreground">Nenhum grupo.</span>
+                    )}
+                    {(a.groupIds ?? []).map((gid) => {
+                      const g = groups.find((x) => x.id === gid);
+                      if (!g) return null;
+                      return (
+                        <span
+                          key={gid}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                          style={{ backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}` }}
+                        >
+                          <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: g.color }} />
+                          {g.name}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -252,14 +248,12 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
                   </div>
                 )}
 
-                <div className="mt-2">
-                  <div className="mb-0.5 text-[10px] uppercase text-muted-foreground">Nota da resposta</div>
-                  <textarea
-                    value={a.note ?? ""}
-                    onChange={(e) => updateAnswer(q.id, a.id, { note: e.target.value })}
-                    rows={1}
-                    placeholder="Observação interna ou exibida na simulação."
-                    className="w-full resize-none border border-input bg-background px-2 py-1 text-xs outline-none focus:border-ring"
+                <div className="mt-2 border-t border-border pt-2">
+                  <NotesEditor
+                    notes={getNotes(a)}
+                    onChange={(notes) => updateAnswer(q.id, a.id, { notes, note: undefined })}
+                    label="Notas da resposta"
+                    compact
                   />
                 </div>
               </li>
@@ -268,7 +262,19 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
         </div>
       </div>
 
-      {groupsOpen && <GroupsModal questionId={q.id} onClose={() => setGroupsOpen(false)} />}
+      {groupsForAnswer && (() => {
+        const a = q.answers.find((x) => x.id === groupsForAnswer);
+        if (!a) return null;
+        return (
+          <GroupsModal
+            selectedIds={a.groupIds ?? []}
+            onToggle={(gid) => toggleAnswerGroup(q.id, a.id, gid)}
+            title="Grupos do destino da resposta"
+            subtitle={`Resposta: "${a.text}"`}
+            onClose={() => setGroupsForAnswer(null)}
+          />
+        );
+      })()}
       {classifOpen && (
         <ClassificationsModal
           onClose={() => {
@@ -286,6 +292,116 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
           selectedId={pickFor ? q.answers.find((x) => x.id === pickFor)?.classificationId : undefined}
         />
       )}
+    </div>
+  );
+}
+
+const visMeta: Record<NoteVisibility, { label: string; Icon: typeof Eye; tint: string }> = {
+  internal: { label: "Interna", Icon: EyeOff, tint: "#6B7280" },
+  external: { label: "Externa", Icon: Eye, tint: "#1351B4" },
+  both: { label: "Ambas (interna + externa)", Icon: Globe, tint: "#00A859" },
+};
+
+function NotesEditor({
+  notes,
+  onChange,
+  label,
+  compact,
+}: {
+  notes: NoteEntry[];
+  onChange: (notes: NoteEntry[]) => void;
+  label: string;
+  compact?: boolean;
+}) {
+  const hasBoth = notes.some((n) => n.visibility === "both");
+  const hasInternal = notes.some((n) => n.visibility === "internal");
+  const hasExternal = notes.some((n) => n.visibility === "external");
+  const canAdd = !hasBoth && !(hasInternal && hasExternal);
+
+  const update = (idx: number, patch: Partial<NoteEntry>) => {
+    const next = notes.map((n, i) => (i === idx ? { ...n, ...patch } : n));
+    onChange(next);
+  };
+  const remove = (idx: number) => onChange(notes.filter((_, i) => i !== idx));
+  const addNote = () => {
+    let visibility: NoteVisibility = "internal";
+    if (hasInternal && !hasExternal) visibility = "external";
+    onChange([...notes, { text: "", visibility }]);
+  };
+
+  const changeVisibility = (idx: number, newVis: NoteVisibility) => {
+    let next = notes.map((n, i) => (i === idx ? { ...n, visibility: newVis } : n));
+    // Enforce constraints: if newVis === "both", remove all others
+    if (newVis === "both") next = [next[idx]];
+    else {
+      // remove any other note that now duplicates this visibility
+      next = next.filter((n, i) => i === idx || n.visibility !== newVis);
+      // if a "both" exists elsewhere, drop it (replaced by specific)
+      next = next.filter((n, i) => i === idx || n.visibility !== "both");
+    }
+    onChange(next);
+  };
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <label className={`flex items-center gap-1 ${compact ? "text-[10px] uppercase text-muted-foreground" : "text-xs font-medium text-foreground"}`}>
+          <FileText className="h-3 w-3" /> {label}
+        </label>
+        <button
+          onClick={addNote}
+          disabled={!canAdd}
+          className="inline-flex items-center gap-1 border border-border bg-background px-2 py-0.5 text-[11px] hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+          title={!canAdd ? "Limite atingido (até 2 notas: 1 interna + 1 externa, ou 1 'ambas')." : "Adicionar nota"}
+        >
+          <Plus className="h-3 w-3" /> Adicionar
+        </button>
+      </div>
+      {notes.length === 0 && (
+        <p className="text-[11px] text-muted-foreground">Nenhuma nota. Clique em Adicionar para criar.</p>
+      )}
+      <ul className="space-y-2">
+        {notes.map((n, idx) => {
+          const meta = visMeta[n.visibility];
+          const Icon = meta.Icon;
+          return (
+            <li key={idx} className="border border-border bg-background p-2">
+              <div className="mb-1 flex items-center gap-2">
+                <Icon className="h-3 w-3" style={{ color: meta.tint }} />
+                <select
+                  value={n.visibility}
+                  onChange={(e) => changeVisibility(idx, e.target.value as NoteVisibility)}
+                  className="flex-1 border border-input bg-background px-1 py-0.5 text-[11px]"
+                >
+                  <option value="internal">Interna (somente editor)</option>
+                  <option value="external">Externa (visível na simulação)</option>
+                  <option value="both">Ambas (interna + externa)</option>
+                </select>
+                <button
+                  onClick={() => remove(idx)}
+                  className="p-1 text-muted-foreground hover:text-destructive"
+                  aria-label="Remover nota"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+              <textarea
+                value={n.text}
+                onChange={(e) => update(idx, { text: e.target.value })}
+                rows={2}
+                placeholder={
+                  n.visibility === "internal"
+                    ? "Observação interna (não exibida ao usuário)."
+                    : n.visibility === "external"
+                      ? "Texto exibido ao usuário na simulação."
+                      : "Texto exibido ao usuário e também usado como referência interna."
+                }
+                className="w-full resize-none border border-input bg-background px-2 py-1 text-xs outline-none focus:border-ring"
+              />
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
