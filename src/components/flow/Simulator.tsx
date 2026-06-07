@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useFlow } from "@/lib/flow-store";
+import { getNotes } from "@/lib/flow-types";
 import { MarkerDot } from "./StatusBadge";
 import { X, RotateCcw, Undo2, FileText } from "lucide-react";
 
@@ -113,6 +114,14 @@ export function Simulator({ onClose }: { onClose: () => void }) {
                   <p className="whitespace-pre-wrap">{q.note}</p>
                 </div>
               )}
+              {getNotes(q)
+                .filter((n) => n.visibility === "external" || n.visibility === "both")
+                .map((n, i) => (
+                  <div key={i} className="mt-3 flex gap-2 border border-border bg-secondary/40 p-2 text-xs text-foreground">
+                    <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    <p className="whitespace-pre-wrap">{n.text}</p>
+                  </div>
+                ))}
               <ul className="mt-4 space-y-2">
                 {q.answers.map((a) => {
                   const classif = a.classificationId
@@ -145,6 +154,13 @@ export function Simulator({ onClose }: { onClose: () => void }) {
                         {a.note && (
                           <span className="pl-6 text-[11px] text-muted-foreground">{a.note}</span>
                         )}
+                        {getNotes(a)
+                          .filter((n) => n.visibility === "external" || n.visibility === "both")
+                          .map((n, i) => (
+                            <span key={i} className="pl-6 text-[11px] text-muted-foreground">
+                              {n.text}
+                            </span>
+                          ))}
                       </button>
                     </li>
                   );
