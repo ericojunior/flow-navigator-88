@@ -12,10 +12,15 @@ export function Simulator({ onClose }: { onClose: () => void }) {
   const current = path[path.length - 1];
   const q = flow.questions[current];
   const classifications = flow.classifications ?? [];
+  const groups = flow.groups ?? [];
   const endingQuestion = ended ? flow.questions[path[path.length - 1]] : null;
   const endingAnswer =
     endingQuestion && endingAnswerId
       ? endingQuestion.answers.find((a) => a.id === endingAnswerId)
+      : null;
+  const endingGroup =
+    endingAnswer?.targetGroupId
+      ? groups.find((g) => g.id === endingAnswer.targetGroupId)
       : null;
   const endingClassif = endingAnswer?.classificationId
     ? classifications.find((c) => c.id === endingAnswer.classificationId)
@@ -70,7 +75,25 @@ export function Simulator({ onClose }: { onClose: () => void }) {
           {ended || !q ? (
             <div>
               <div className="text-sm font-medium text-foreground">Atendimento finalizado</div>
-              {endingClassif ? (
+              {endingGroup ? (
+                <div
+                  className="mt-3 border-l-4 bg-secondary/30 p-3"
+                  style={{ borderColor: endingGroup.color }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: endingGroup.color }}
+                    />
+                    <span className="text-sm font-semibold text-foreground">
+                      Encaminhado ao grupo: {endingGroup.name}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    O atendimento segue dentro do grupo de perguntas selecionado.
+                  </p>
+                </div>
+              ) : endingClassif ? (
                 <div
                   className="mt-3 border-l-4 bg-secondary/30 p-3"
                   style={{ borderColor: markerColor(endingClassif.marker) }}
@@ -127,11 +150,14 @@ export function Simulator({ onClose }: { onClose: () => void }) {
                   const classif = a.classificationId
                     ? classifications.find((c) => c.id === a.classificationId)
                     : null;
+                  const grp = a.targetGroupId
+                    ? groups.find((g) => g.id === a.targetGroupId)
+                    : null;
                   return (
                     <li key={a.id}>
                       <button
                         onClick={() => {
-                          if (a.target === "end") {
+                          if (a.targetGroupId || a.target === "end") {
                             setEndingAnswerId(a.id);
                             setEnded(true);
                           } else {
@@ -144,7 +170,9 @@ export function Simulator({ onClose }: { onClose: () => void }) {
                           <MarkerDot marker={a.marker} />
                           <span className="flex-1">{a.text}</span>
                           <span className="text-xs text-muted-foreground">
-                            {a.target === "end"
+                            {grp
+                              ? `→ Grupo · ${grp.name}`
+                              : a.target === "end"
                               ? classif
                                 ? `Encerrar · ${classif.name}`
                                 : "Encerrar fluxo"
