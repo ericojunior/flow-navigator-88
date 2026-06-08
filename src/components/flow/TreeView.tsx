@@ -616,59 +616,65 @@ export function TreeView({
               );
             })}
           </svg>
-          {notePopup && (() => {
-            const q = flow.questions[notePopup.id];
-            if (!q) return null;
-            const qns = getNotes(q);
-            const answerNotes = q.answers
-              .map((a) => ({ a, notes: getNotes(a) }))
-              .filter((x) => x.notes.length > 0);
-            return (
-              <div
-                style={{
-                  position: "absolute",
-                  left: notePopup.x + 6,
-                  top: notePopup.y,
-                  width: 280,
-                  zIndex: 5,
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                className="border border-border bg-card shadow-lg"
-              >
-                <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-2 py-1 text-[11px] font-semibold">
-                  <span>Notas de #{q.id}</span>
-                  <button onClick={() => setNotePopup(null)} className="p-0.5 hover:bg-background">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-                <div className="max-h-64 space-y-2 overflow-auto p-2 text-[11px]">
-                  {qns.length === 0 && answerNotes.length === 0 && (
-                    <p className="text-muted-foreground">Sem notas.</p>
-                  )}
-                  {qns.map((nt, i) => (
-                    <div key={`q-${i}`} className="border-l-2 border-primary/60 bg-secondary/30 p-1.5">
-                      <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
-                        Pergunta · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
-                      </div>
-                      <p className="whitespace-pre-wrap text-foreground">{nt.text || <span className="italic text-muted-foreground">(vazia)</span>}</p>
-                    </div>
-                  ))}
-                  {answerNotes.map(({ a, notes }) =>
-                    notes.map((nt, i) => (
-                      <div key={`a-${a.id}-${i}`} className="border-l-2 border-amber-400 bg-amber-50/60 p-1.5">
-                        <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
-                          Resposta "{a.text.slice(0, 20)}" · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
-                        </div>
-                        <p className="whitespace-pre-wrap text-foreground">{nt.text || <span className="italic text-muted-foreground">(vazia)</span>}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })()}
         </div>
+
+        {/* Notes popover (positioned in viewport coords, outside scaled canvas) */}
+        {notePopup && (() => {
+          const q = flow.questions[notePopup.id];
+          if (!q) return null;
+          const qns = getNotes(q);
+          const answerNotes = q.answers
+            .map((a) => ({ a, notes: getNotes(a) }))
+            .filter((x) => x.notes.length > 0);
+          return (
+            <div
+              style={{
+                position: "absolute",
+                left: Math.min(notePopup.sx, (viewportRef.current?.clientWidth ?? 800) - 296),
+                top: Math.min(notePopup.sy, (viewportRef.current?.clientHeight ?? 600) - 280),
+                width: 280,
+                zIndex: 50,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className="border border-border bg-card shadow-xl"
+            >
+              <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-2 py-1 text-[11px] font-semibold">
+                <span>Notas de #{q.id}</span>
+                <button onClick={() => setNotePopup(null)} className="p-0.5 hover:bg-background">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="max-h-64 space-y-2 overflow-auto p-2 text-[11px]">
+                {qns.length === 0 && answerNotes.length === 0 && (
+                  <p className="text-muted-foreground">Sem notas.</p>
+                )}
+                {qns.map((nt, i) => (
+                  <div key={`q-${i}`} className="border-l-2 border-primary/60 bg-secondary/30 p-1.5">
+                    <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
+                      Pergunta · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
+                    </div>
+                    <p className="whitespace-pre-wrap text-foreground">
+                      {nt.text || <span className="italic text-muted-foreground">(vazia)</span>}
+                    </p>
+                  </div>
+                ))}
+                {answerNotes.map(({ a, notes }) =>
+                  notes.map((nt, i) => (
+                    <div key={`a-${a.id}-${i}`} className="border-l-2 border-amber-400 bg-amber-50/60 p-1.5">
+                      <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
+                        Resposta "{a.text.slice(0, 20)}" · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
+                      </div>
+                      <p className="whitespace-pre-wrap text-foreground">
+                        {nt.text || <span className="italic text-muted-foreground">(vazia)</span>}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Floating controls inside the canvas */}
         <div className="pointer-events-auto absolute bottom-4 right-4 flex items-center gap-1 rounded-full border border-border bg-card/95 px-1.5 py-1 shadow-sm backdrop-blur">
