@@ -382,6 +382,37 @@ export const useFlow = create<FlowState>((set, get) => ({
         },
       };
     }),
+  // ---------- Catalogs ----------
+  addQuestionCatalogItem: (item) => {
+    const id = `qc-${Date.now().toString(36)}`;
+    set((s) => ({
+      flow: {
+        ...s.flow,
+        questionCatalog: [...(s.flow.questionCatalog ?? []), { id, ...item }],
+      },
+    }));
+    return id;
+  },
+  addAnswerCatalogItem: (item) => {
+    const id = `ac-${Date.now().toString(36)}`;
+    set((s) => ({
+      flow: {
+        ...s.flow,
+        answerCatalog: [...(s.flow.answerCatalog ?? []), { id, ...item }],
+      },
+    }));
+    return id;
+  },
+  addNoteCatalogItem: (item) => {
+    const id = `nc-${Date.now().toString(36)}`;
+    set((s) => ({
+      flow: {
+        ...s.flow,
+        noteCatalog: [...(s.flow.noteCatalog ?? []), { id, ...item }],
+      },
+    }));
+    return id;
+  },
 }));
 
 // helpers
