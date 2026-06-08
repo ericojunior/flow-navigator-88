@@ -1,5 +1,15 @@
 import { create } from "zustand";
-import type { Flow, Question, Answer, AnswerMarker, QuestionGroup, Classification } from "./flow-types";
+import type {
+  Flow,
+  Question,
+  Answer,
+  AnswerMarker,
+  QuestionGroup,
+  Classification,
+  QuestionCatalogItem,
+  AnswerCatalogItem,
+  NoteCatalogItem,
+} from "./flow-types";
 
 const initialQuestions: Question[] = [
   {
@@ -56,6 +66,36 @@ function buildFlow(qs: Question[]): Flow {
       { id: "c-inapto", name: "Inapto", marker: "negative", code: "INA-01", note: "Usuário não cumpre os requisitos. Encaminhar conforme protocolo." },
       { id: "c-presencial", name: "Encaminhar presencial", marker: "warning", code: "ENC-01", note: "Solicitar comparecimento à unidade mais próxima." },
     ],
+    questionCatalog: [
+      { id: "qc-1", title: "A empresa denunciada possui registro na ANS?", active: true },
+      { id: "qc-2", title: "Houve comunicação prévia com antecedência mínima de 60 (sessenta) dias?", active: true },
+      { id: "qc-3", title: "A administradora forneceu o número do protocolo de atendimento?", active: true },
+      { id: "qc-4", title: "A cobrança foi efetuada pela operadora ou administradora de benefícios?", active: true },
+      { id: "qc-5", title: "A operadora autorizou/agendou o procedimento solicitado?", active: true },
+      { id: "qc-6", title: "A adaptação foi solicitada pelo responsável pelo contrato?", active: false },
+      { id: "qc-7", title: "A administradora ofereceu alternativa de acesso ao boleto?", active: true },
+      { id: "qc-8", title: "O beneficiário possui vínculo ativo com a operadora?", active: true },
+    ],
+    answerCatalog: [
+      { id: "ac-1", text: "Sim", active: true },
+      { id: "ac-2", text: "Não", active: true },
+      { id: "ac-3", text: "Não sei", active: true },
+      { id: "ac-4", text: "A Operadora autorizou/agendou, porém em município diferente do solicitado", active: true },
+      { id: "ac-5", text: "A Operadora não aprovou os materiais necessários para a realização do procedimento", active: true },
+      { id: "ac-6", text: "A Operadora solicitou laudo/relatório médico para dar continuidade ao processo de análise", active: true },
+      { id: "ac-7", text: "A Ouvidoria não forneceu protocolo de atendimento", active: true },
+      { id: "ac-8", text: "A administradora não possui ouvidoria", active: true },
+      { id: "ac-9", text: "A adaptação foi decisão unilateral da operadora", active: true },
+      { id: "ac-10", text: "O beneficiário não possui vínculo com a operadora/administradora notificada", active: true },
+      { id: "ac-11", text: "A Operadora autorizou/agendou em bairro distante da residência do beneficiário", active: false },
+    ],
+    noteCatalog: [
+      { id: "nc-1", title: "Base legal — Lei 9.656/98", text: "Trata-se de contrato firmado na vigência da Lei 9.656/98." },
+      { id: "nc-2", title: "Prazo de comunicação", text: "A comunicação prévia deve respeitar a antecedência mínima de 60 (sessenta) dias." },
+      { id: "nc-3", title: "Orientação ao analista", text: "Confirmar dados cadastrais junto ao sistema da operadora antes de prosseguir." },
+      { id: "nc-4", title: "Atendimento de urgência/emergência", text: "Procedimentos de urgência/emergência têm regras específicas conforme RN vigente." },
+      { id: "nc-5", title: "Encaminhamento à fiscalização", text: "Caso a operadora não responda em 5 dias úteis, encaminhar à fiscalização." },
+    ],
   };
 }
 
@@ -64,9 +104,9 @@ interface FlowState {
   setFlow: (f: Flow) => void;
   updateQuestion: (id: number, patch: Partial<Question>) => void;
   updateAnswer: (qid: number, aid: string, patch: Partial<Answer>) => void;
-  addAnswer: (qid: number) => void;
+  addAnswer: (qid: number, fromCatalogId?: string) => void;
   removeAnswer: (qid: number, aid: string) => void;
-  addQuestion: () => number;
+  addQuestion: (fromCatalogId?: string) => number;
   generateLargeFlow: (n?: number) => void;
   bumpVersion: () => void;
   renumberByFlow: () => void;
@@ -79,6 +119,10 @@ interface FlowState {
   addClassification: (c?: Partial<Classification>) => string;
   updateClassification: (id: string, patch: Partial<Classification>) => void;
   removeClassification: (id: string) => void;
+  // Catalogs
+  addQuestionCatalogItem: (item: Omit<QuestionCatalogItem, "id">) => string;
+  addAnswerCatalogItem: (item: Omit<AnswerCatalogItem, "id">) => string;
+  addNoteCatalogItem: (item: Omit<NoteCatalogItem, "id">) => string;
 }
 
 function nextId(flow: Flow): number {
@@ -111,12 +155,21 @@ export const useFlow = create<FlowState>((set, get) => ({
         },
       };
     }),
-  addAnswer: (qid) =>
+  addAnswer: (qid, fromCatalogId) =>
     set((s) => {
       const q = s.flow.questions[qid];
       if (!q) return s;
       const id = `a${Date.now().toString(36)}`;
-      const newA: Answer = { id, text: "Nova resposta", target: "end", marker: "normal" };
+      const cat = fromCatalogId
+        ? (s.flow.answerCatalog ?? []).find((c) => c.id === fromCatalogId)
+        : null;
+      const newA: Answer = {
+        id,
+        text: cat?.text ?? "Nova resposta",
+        target: "end",
+        marker: "normal",
+        catalogId: cat?.id,
+      };
       return {
         flow: {
           ...s.flow,
@@ -138,8 +191,11 @@ export const useFlow = create<FlowState>((set, get) => ({
         },
       };
     }),
-  addQuestion: () => {
+  addQuestion: (fromCatalogId) => {
     const id = nextId(get().flow);
+    const cat = fromCatalogId
+      ? (get().flow.questionCatalog ?? []).find((c) => c.id === fromCatalogId)
+      : null;
     set((s) => ({
       flow: {
         ...s.flow,
@@ -147,8 +203,9 @@ export const useFlow = create<FlowState>((set, get) => ({
           ...s.flow.questions,
           [id]: {
             id,
-            title: `Nova pergunta #${id}`,
-            description: "",
+            title: cat?.title ?? `Nova pergunta #${id}`,
+            description: cat?.description ?? "",
+            catalogId: cat?.id,
             answers: [{ id: "a", text: "Finalizar", target: "end", marker: "normal" }],
           },
         },
