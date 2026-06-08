@@ -337,7 +337,7 @@ export function TreeView({
     return map;
   }, [flow]);
 
-  const [notePopup, setNotePopup] = useState<{ id: number; x: number; y: number } | null>(null);
+  const [notePopup, setNotePopup] = useState<{ id: number; sx: number; sy: number } | null>(null);
 
   return (
     <div
@@ -457,6 +457,9 @@ export function TreeView({
             {layout.nodes.map((n, idx) => {
               if (n.terminal) {
                 const tcolor = markerColor(n.terminal.marker);
+                const isGroup = !!n.terminal.groupColor;
+                const fillBg = isGroup ? `${n.terminal.groupColor}1A` : "#FFFFFF";
+                const strokeC = isGroup ? n.terminal.groupColor! : tcolor;
                 return (
                   <g
                     key={`t-${n.terminal.key}-${idx}`}
@@ -466,21 +469,21 @@ export function TreeView({
                       width={NODE_W}
                       height={NODE_H}
                       rx={NODE_H / 2}
-                      fill="#FFFFFF"
-                      stroke={tcolor}
+                      fill={fillBg}
+                      stroke={strokeC}
                       strokeWidth={1.5}
                       strokeDasharray="3 3"
                     />
-                    <circle cx={14} cy={NODE_H / 2} r={5} fill={tcolor} />
+                    <circle cx={14} cy={NODE_H / 2} r={5} fill={strokeC} />
                     <text
                       x={26}
                       y={NODE_H / 2 - 4}
                       fontFamily="Raleway, sans-serif"
                       fontSize={10}
                       fontWeight={700}
-                      fill={tcolor}
+                      fill={strokeC}
                     >
-                      ENCERRA
+                      {isGroup ? "GRUPO" : "ENCERRA"}
                     </text>
                     <text
                       x={26}
@@ -565,7 +568,13 @@ export function TreeView({
                       style={{ cursor: "pointer" }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setNotePopup({ id: n.id, x: n.x + NODE_W, y: n.y });
+                        const vp = viewportRef.current?.getBoundingClientRect();
+                        const ev = e as unknown as React.MouseEvent;
+                        setNotePopup({
+                          id: n.id,
+                          sx: ev.clientX - (vp?.left ?? 0) + 8,
+                          sy: ev.clientY - (vp?.top ?? 0) + 8,
+                        });
                       }}
                     >
                       <rect width={14} height={14} rx={3} fill="#FFCD07" stroke="#1F2937" strokeWidth={0.6} />
