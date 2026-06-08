@@ -14,6 +14,8 @@ interface LaidOutNode {
     label: string;
     marker: string;
     code?: string;
+    /** When set, this is a group-destination terminal (not an end). */
+    groupColor?: string;
   };
 }
 interface Edge {
@@ -40,6 +42,7 @@ function computeLayout(
   const edges: Edge[] = [];
   const seen = new Set<number>();
   const classifications = flow.classifications ?? [];
+  const groups = flow.groups ?? [];
   let terminalCounter = 0;
 
   // returns subtree width in "slots" (multiples of NODE_W + H_GAP)
@@ -58,9 +61,30 @@ function computeLayout(
 
     type Child =
       | { kind: "q"; tid: number; marker: string; text: string }
-      | { kind: "end"; terminalId: number; marker: string; text: string; classifName?: string; classifCode?: string; classifMarker?: string };
+      | {
+          kind: "end";
+          terminalId: number;
+          marker: string;
+          text: string;
+          classifName?: string;
+          classifCode?: string;
+          classifMarker?: string;
+          groupName?: string;
+          groupColor?: string;
+        };
 
     const children: Child[] = q.answers.map((a): Child => {
+      if (a.targetGroupId) {
+        const g = groups.find((x) => x.id === a.targetGroupId);
+        return {
+          kind: "end",
+          terminalId: ++terminalCounter,
+          marker: a.marker,
+          text: a.text,
+          groupName: g?.name ?? "Grupo",
+          groupColor: g?.color ?? "#6B7280",
+        };
+      }
       if (a.target === "end") {
         const c = a.classificationId ? classifications.find((x) => x.id === a.classificationId) : null;
         return {
@@ -98,9 +122,10 @@ function computeLayout(
           y: (depth + 1) * (NODE_H + V_GAP),
           terminal: {
             key,
-            label: child.classifName ?? "Encerrar fluxo",
+            label: child.groupName ?? child.classifName ?? "Encerrar fluxo",
             marker: child.classifMarker ?? "normal",
             code: child.classifCode,
+            groupColor: child.groupColor,
           },
         });
       }
