@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useFlow } from "@/lib/flow-store";
-import type { AnswerMarker, NoteEntry, NoteVisibility } from "@/lib/flow-types";
+import type { NoteEntry, NoteVisibility } from "@/lib/flow-types";
 import { getNotes } from "@/lib/flow-types";
-import { Trash2, Plus, Tags, FileText, Settings2, Eye, EyeOff, Globe } from "lucide-react";
-import { MarkerDot } from "./StatusBadge";
+import { Trash2, Plus, Tags, FileText, Settings2, Eye, EyeOff, Globe, Repeat, ListPlus } from "lucide-react";
 import { GroupsModal } from "./GroupsModal";
 import { ClassificationsModal } from "./ClassificationsModal";
+import { PickerModal, type PickerItem } from "./PickerModal";
 
 export function PropertiesPanel({ questionId }: { questionId: number }) {
   const flow = useFlow((s) => s.flow);
@@ -15,23 +15,26 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
   const addAnswer = useFlow((s) => s.addAnswer);
   const removeAnswer = useFlow((s) => s.removeAnswer);
   const toggleAnswerGroup = useFlow((s) => s.toggleAnswerGroup);
+  const addQuestionCatalogItem = useFlow((s) => s.addQuestionCatalogItem);
+  const addAnswerCatalogItem = useFlow((s) => s.addAnswerCatalogItem);
+  const addNoteCatalogItem = useFlow((s) => s.addNoteCatalogItem);
   const groups = flow.groups ?? [];
   const classifications = flow.classifications ?? [];
+  const questionCatalog = flow.questionCatalog ?? [];
+  const answerCatalog = flow.answerCatalog ?? [];
+  const noteCatalog = flow.noteCatalog ?? [];
   const [groupsForAnswer, setGroupsForAnswer] = useState<string | null>(null);
   const [classifOpen, setClassifOpen] = useState(false);
-  const [pickFor, setPickFor] = useState<string | null>(null); // answer id awaiting classification pick
+  const [pickFor, setPickFor] = useState<string | null>(null);
+  const [questionPickerOpen, setQuestionPickerOpen] = useState(false);
+  const [answerPickerFor, setAnswerPickerFor] = useState<"new" | string | null>(null);
+  const [notePickerFor, setNotePickerFor] = useState<
+    { scope: "question" } | { scope: "answer"; aid: string } | null
+  >(null);
 
   if (!q) {
     return <div className="p-4 text-xs text-muted-foreground">Selecione uma pergunta.</div>;
   }
-
-  const markers: AnswerMarker[] = ["normal", "positive", "negative", "warning"];
-  const markerLabels: Record<AnswerMarker, string> = {
-    normal: "Normal",
-    positive: "Positivo",
-    negative: "Negativo",
-    warning: "Atenção",
-  };
 
   return (
     <div className="flex flex-col bg-card">
@@ -47,27 +50,29 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
         </div>
       </div>
       <div className="max-h-[700px] overflow-auto p-4 space-y-4">
+        {/* Question (from catalog) */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-foreground">Título</label>
-          <input
-            value={q.title}
-            onChange={(e) => updateQuestion(q.id, { title: e.target.value })}
-            className="w-full border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-ring"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-foreground">Descrição</label>
-          <textarea
-            value={q.description}
-            onChange={(e) => updateQuestion(q.id, { description: e.target.value })}
-            rows={3}
-            className="w-full resize-none border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-ring"
-          />
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-xs font-medium text-foreground">Pergunta (catálogo)</label>
+            <button
+              onClick={() => setQuestionPickerOpen(true)}
+              className="inline-flex items-center gap-1 rounded-full border border-primary px-3 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10"
+            >
+              <Repeat className="h-3 w-3" /> Trocar pergunta
+            </button>
+          </div>
+          <div className="border border-border bg-background px-3 py-2 text-sm text-foreground">
+            {q.title}
+          </div>
+          {q.description && (
+            <p className="mt-1 text-[11px] text-muted-foreground">{q.description}</p>
+          )}
         </div>
 
-        <NotesEditor
+        <NotesBlock
           notes={getNotes(q)}
           onChange={(notes) => updateQuestion(q.id, { notes, note: undefined })}
+          onAdd={() => setNotePickerFor({ scope: "question" })}
           label="Notas explicativas (pergunta)"
         />
 
@@ -75,22 +80,25 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
           <div className="mb-2 flex items-center justify-between">
             <label className="text-xs font-medium text-foreground">Respostas</label>
             <button
-              onClick={() => addAnswer(q.id)}
-              className="inline-flex items-center gap-1 border border-border bg-background px-2 py-1 text-[11px] hover:bg-secondary"
+              onClick={() => setAnswerPickerFor("new")}
+              className="inline-flex items-center gap-1 rounded-full border border-primary px-3 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10"
             >
-              <Plus className="h-3 w-3" /> Adicionar
+              <ListPlus className="h-3 w-3" /> Adicionar resposta
             </button>
           </div>
           <ul className="space-y-2">
             {q.answers.map((a) => (
               <li key={a.id} className="border border-border bg-background p-2">
-                <div className="flex items-center gap-2">
-                  <MarkerDot marker={a.marker} />
-                  <input
-                    value={a.text}
-                    onChange={(e) => updateAnswer(q.id, a.id, { text: e.target.value })}
-                    className="flex-1 border border-input bg-background px-2 py-1 text-xs outline-none focus:border-ring"
-                  />
+                <div className="flex items-start gap-2">
+                  <span className="flex-1 text-xs text-foreground">{a.text}</span>
+                  <button
+                    onClick={() => setAnswerPickerFor(a.id)}
+                    className="p-1 text-primary hover:bg-secondary"
+                    aria-label="Trocar resposta"
+                    title="Trocar resposta"
+                  >
+                    <Repeat className="h-3.5 w-3.5" />
+                  </button>
                   <button
                     onClick={() => removeAnswer(q.id, a.id)}
                     className="p-1 text-muted-foreground hover:text-destructive"
@@ -99,49 +107,55 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="mb-0.5 text-[10px] uppercase text-muted-foreground">Destino</div>
-                    <select
-                      value={a.target === "end" ? "end" : String(a.target)}
-                      onChange={(e) =>
+                <div className="mt-2">
+                  <div className="mb-0.5 text-[10px] uppercase text-muted-foreground">Próximo destino</div>
+                  <select
+                    value={
+                      a.targetGroupId
+                        ? `g:${a.targetGroupId}`
+                        : a.target === "end"
+                          ? "end"
+                          : `q:${a.target}`
+                    }
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "end") {
+                        updateAnswer(q.id, a.id, { target: "end", targetGroupId: undefined });
+                      } else if (v.startsWith("g:")) {
+                        updateAnswer(q.id, a.id, { target: "end", targetGroupId: v.slice(2) });
+                      } else {
                         updateAnswer(q.id, a.id, {
-                          target: e.target.value === "end" ? "end" : Number(e.target.value),
-                        })
+                          target: Number(v.slice(2)),
+                          targetGroupId: undefined,
+                        });
                       }
-                      className="w-full border border-input bg-background px-1 py-1 text-xs"
-                    >
-                      <option value="end">Encerrar fluxo</option>
+                    }}
+                    className="w-full border border-input bg-background px-2 py-1.5 text-xs"
+                  >
+                    <option value="end">Encerrar fluxo</option>
+                    <optgroup label="Perguntas">
                       {Object.keys(flow.questions)
                         .map(Number)
                         .filter((id) => id !== q.id)
                         .slice(0, 500)
                         .map((id) => (
-                          <option key={id} value={id}>
-                            #{id} {flow.questions[id].title.slice(0, 28)}
+                          <option key={id} value={`q:${id}`}>
+                            #{id} {flow.questions[id].title.slice(0, 40)}
                           </option>
                         ))}
-                    </select>
-                  </div>
-                  <div>
-                    <div className="mb-0.5 text-[10px] uppercase text-muted-foreground">Marcador</div>
-                    <select
-                      value={a.marker}
-                      onChange={(e) =>
-                        updateAnswer(q.id, a.id, { marker: e.target.value as AnswerMarker })
-                      }
-                      className="w-full border border-input bg-background px-1 py-1 text-xs"
-                    >
-                      {markers.map((m) => (
-                        <option key={m} value={m}>
-                          {markerLabels[m]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    </optgroup>
+                    {groups.length > 0 && (
+                      <optgroup label="Grupos de perguntas">
+                        {groups.map((g) => (
+                          <option key={g.id} value={`g:${g.id}`}>
+                            ▣ {g.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
                 </div>
 
-                {/* Groups for this answer (attached to the destination) */}
                 <div className="mt-2 border-t border-border pt-2">
                   <div className="mb-1 flex items-center justify-between">
                     <span className="flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
@@ -165,9 +179,16 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
                         <span
                           key={gid}
                           className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                          style={{ backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}` }}
+                          style={{
+                            backgroundColor: `${g.color}1A`,
+                            color: g.color,
+                            border: `1px solid ${g.color}`,
+                          }}
                         >
-                          <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: g.color }} />
+                          <span
+                            className="inline-block h-1.5 w-1.5 rounded-full"
+                            style={{ backgroundColor: g.color }}
+                          />
                           {g.name}
                         </span>
                       );
@@ -175,7 +196,7 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
                   </div>
                 </div>
 
-                {a.target === "end" && (
+                {a.target === "end" && !a.targetGroupId && (
                   <div className="mt-2 border-t border-border pt-2">
                     <div className="mb-0.5 flex items-center justify-between text-[10px] uppercase text-muted-foreground">
                       <span>Classificação de encerramento</span>
@@ -192,7 +213,9 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
                         onChange={(e) =>
                           updateAnswer(q.id, a.id, {
                             classificationId: e.target.value || undefined,
-                            classificationNoteOverride: e.target.value ? a.classificationNoteOverride : undefined,
+                            classificationNoteOverride: e.target.value
+                              ? a.classificationNoteOverride
+                              : undefined,
                           })
                         }
                         className="flex-1 border border-input bg-background px-1 py-1 text-xs"
@@ -216,42 +239,14 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
                         ⋯
                       </button>
                     </div>
-                    {a.classificationId && (
-                      <div className="mt-2">
-                        <div className="mb-0.5 text-[10px] uppercase text-muted-foreground">
-                          Nota exibida ao usuário (sobrescreve a do catálogo se preenchida)
-                        </div>
-                        <textarea
-                          value={
-                            a.classificationNoteOverride ??
-                            classifications.find((c) => c.id === a.classificationId)?.note ??
-                            ""
-                          }
-                          onChange={(e) =>
-                            updateAnswer(q.id, a.id, { classificationNoteOverride: e.target.value })
-                          }
-                          rows={2}
-                          className="w-full resize-none border border-input bg-background px-2 py-1 text-xs outline-none focus:border-ring"
-                        />
-                        {a.classificationNoteOverride && (
-                          <button
-                            onClick={() =>
-                              updateAnswer(q.id, a.id, { classificationNoteOverride: undefined })
-                            }
-                            className="mt-1 text-[10px] text-primary hover:underline"
-                          >
-                            Restaurar nota do catálogo
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 
                 <div className="mt-2 border-t border-border pt-2">
-                  <NotesEditor
+                  <NotesBlock
                     notes={getNotes(a)}
                     onChange={(notes) => updateAnswer(q.id, a.id, { notes, note: undefined })}
+                    onAdd={() => setNotePickerFor({ scope: "answer", aid: a.id })}
                     label="Notas da resposta"
                     compact
                   />
@@ -262,19 +257,20 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
         </div>
       </div>
 
-      {groupsForAnswer && (() => {
-        const a = q.answers.find((x) => x.id === groupsForAnswer);
-        if (!a) return null;
-        return (
-          <GroupsModal
-            selectedIds={a.groupIds ?? []}
-            onToggle={(gid) => toggleAnswerGroup(q.id, a.id, gid)}
-            title="Grupos do destino da resposta"
-            subtitle={`Resposta: "${a.text}"`}
-            onClose={() => setGroupsForAnswer(null)}
-          />
-        );
-      })()}
+      {groupsForAnswer &&
+        (() => {
+          const a = q.answers.find((x) => x.id === groupsForAnswer);
+          if (!a) return null;
+          return (
+            <GroupsModal
+              selectedIds={a.groupIds ?? []}
+              onToggle={(gid) => toggleAnswerGroup(q.id, a.id, gid)}
+              title="Grupos do destino da resposta"
+              subtitle={`Resposta: "${a.text}"`}
+              onClose={() => setGroupsForAnswer(null)}
+            />
+          );
+        })()}
       {classifOpen && (
         <ClassificationsModal
           onClose={() => {
@@ -292,6 +288,104 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
           selectedId={pickFor ? q.answers.find((x) => x.id === pickFor)?.classificationId : undefined}
         />
       )}
+
+      {questionPickerOpen && (
+        <PickerModal
+          title="Selecionar pergunta do catálogo"
+          primaryLabel="Pergunta"
+          searchHint="Filtro de pesquisa. Digite a pergunta pela qual deseja pesquisar"
+          items={questionCatalog.map<PickerItem>((c) => ({
+            id: c.id,
+            primary: c.title,
+            secondary: c.description,
+            active: c.active,
+          }))}
+          selectedId={q.catalogId}
+          onPick={(cid) => {
+            const cat = questionCatalog.find((c) => c.id === cid);
+            if (cat)
+              updateQuestion(q.id, {
+                title: cat.title,
+                description: cat.description ?? "",
+                catalogId: cat.id,
+              });
+          }}
+          onClose={() => setQuestionPickerOpen(false)}
+          onCreate={(text) => addQuestionCatalogItem({ title: text, active: true })}
+        />
+      )}
+
+      {answerPickerFor && (
+        <PickerModal
+          title={
+            answerPickerFor === "new" ? "Selecionar resposta do catálogo" : "Trocar resposta"
+          }
+          primaryLabel="Resposta"
+          searchHint="Filtro de pesquisa. Digite a resposta pela qual deseja pesquisar"
+          items={answerCatalog.map<PickerItem>((c) => ({
+            id: c.id,
+            primary: c.text,
+            active: c.active,
+          }))}
+          selectedId={
+            answerPickerFor !== "new"
+              ? q.answers.find((x) => x.id === answerPickerFor)?.catalogId
+              : undefined
+          }
+          onPick={(cid) => {
+            const cat = answerCatalog.find((c) => c.id === cid);
+            if (!cat) return;
+            if (answerPickerFor === "new") {
+              addAnswer(q.id, cid);
+            } else {
+              updateAnswer(q.id, answerPickerFor, {
+                text: cat.text,
+                catalogId: cat.id,
+              });
+            }
+          }}
+          onClose={() => setAnswerPickerFor(null)}
+          onCreate={(text) => addAnswerCatalogItem({ text, active: true })}
+        />
+      )}
+
+      {notePickerFor && (
+        <PickerModal
+          title="Selecionar nota explicativa"
+          primaryLabel="Nota"
+          searchHint="Filtro de pesquisa. Digite o texto da nota."
+          items={noteCatalog.map<PickerItem>((n) => ({
+            id: n.id,
+            primary: n.title,
+            secondary: n.text,
+            active: n.active,
+          }))}
+          onPick={(cid) => {
+            const cat = noteCatalog.find((c) => c.id === cid);
+            if (!cat) return;
+            const target =
+              notePickerFor.scope === "question"
+                ? getNotes(q)
+                : getNotes(q.answers.find((x) => x.id === notePickerFor.aid));
+            const hasBoth = target.some((n) => n.visibility === "both");
+            const hasInternal = target.some((n) => n.visibility === "internal");
+            const hasExternal = target.some((n) => n.visibility === "external");
+            if (hasBoth || (hasInternal && hasExternal)) return;
+            const visibility: NoteVisibility =
+              hasInternal && !hasExternal ? "external" : "internal";
+            const next: NoteEntry[] = [...target, { text: cat.text, visibility }];
+            if (notePickerFor.scope === "question") {
+              updateQuestion(q.id, { notes: next, note: undefined });
+            } else {
+              updateAnswer(q.id, notePickerFor.aid, { notes: next, note: undefined });
+            }
+          }}
+          onClose={() => setNotePickerFor(null)}
+          onCreate={(text) =>
+            addNoteCatalogItem({ title: text.slice(0, 40), text, active: true })
+          }
+        />
+      )}
     </div>
   );
 }
@@ -302,14 +396,16 @@ const visMeta: Record<NoteVisibility, { label: string; Icon: typeof Eye; tint: s
   both: { label: "Ambas (interna + externa)", Icon: Globe, tint: "#00A859" },
 };
 
-function NotesEditor({
+function NotesBlock({
   notes,
   onChange,
+  onAdd,
   label,
   compact,
 }: {
   notes: NoteEntry[];
   onChange: (notes: NoteEntry[]) => void;
+  onAdd: () => void;
   label: string;
   compact?: boolean;
 }) {
@@ -318,25 +414,13 @@ function NotesEditor({
   const hasExternal = notes.some((n) => n.visibility === "external");
   const canAdd = !hasBoth && !(hasInternal && hasExternal);
 
-  const update = (idx: number, patch: Partial<NoteEntry>) => {
-    const next = notes.map((n, i) => (i === idx ? { ...n, ...patch } : n));
-    onChange(next);
-  };
   const remove = (idx: number) => onChange(notes.filter((_, i) => i !== idx));
-  const addNote = () => {
-    let visibility: NoteVisibility = "internal";
-    if (hasInternal && !hasExternal) visibility = "external";
-    onChange([...notes, { text: "", visibility }]);
-  };
 
   const changeVisibility = (idx: number, newVis: NoteVisibility) => {
     let next = notes.map((n, i) => (i === idx ? { ...n, visibility: newVis } : n));
-    // Enforce constraints: if newVis === "both", remove all others
     if (newVis === "both") next = [next[idx]];
     else {
-      // remove any other note that now duplicates this visibility
       next = next.filter((n, i) => i === idx || n.visibility !== newVis);
-      // if a "both" exists elsewhere, drop it (replaced by specific)
       next = next.filter((n, i) => i === idx || n.visibility !== "both");
     }
     onChange(next);
@@ -345,20 +429,30 @@ function NotesEditor({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <label className={`flex items-center gap-1 ${compact ? "text-[10px] uppercase text-muted-foreground" : "text-xs font-medium text-foreground"}`}>
+        <label
+          className={`flex items-center gap-1 ${
+            compact ? "text-[10px] uppercase text-muted-foreground" : "text-xs font-medium text-foreground"
+          }`}
+        >
           <FileText className="h-3 w-3" /> {label}
         </label>
         <button
-          onClick={addNote}
+          onClick={onAdd}
           disabled={!canAdd}
-          className="inline-flex items-center gap-1 border border-border bg-background px-2 py-0.5 text-[11px] hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
-          title={!canAdd ? "Limite atingido (até 2 notas: 1 interna + 1 externa, ou 1 'ambas')." : "Adicionar nota"}
+          className="inline-flex items-center gap-1 rounded-full border border-primary px-3 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
+          title={
+            !canAdd
+              ? "Limite atingido (até 2 notas: 1 interna + 1 externa, ou 1 'ambas')."
+              : "Adicionar nota do catálogo"
+          }
         >
           <Plus className="h-3 w-3" /> Adicionar
         </button>
       </div>
       {notes.length === 0 && (
-        <p className="text-[11px] text-muted-foreground">Nenhuma nota. Clique em Adicionar para criar.</p>
+        <p className="text-[11px] text-muted-foreground">
+          Nenhuma nota. Clique em Adicionar para escolher do catálogo.
+        </p>
       )}
       <ul className="space-y-2">
         {notes.map((n, idx) => {
@@ -385,19 +479,9 @@ function NotesEditor({
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
-              <textarea
-                value={n.text}
-                onChange={(e) => update(idx, { text: e.target.value })}
-                rows={2}
-                placeholder={
-                  n.visibility === "internal"
-                    ? "Observação interna (não exibida ao usuário)."
-                    : n.visibility === "external"
-                      ? "Texto exibido ao usuário na simulação."
-                      : "Texto exibido ao usuário e também usado como referência interna."
-                }
-                className="w-full resize-none border border-input bg-background px-2 py-1 text-xs outline-none focus:border-ring"
-              />
+              <p className="whitespace-pre-wrap rounded border border-dashed border-border bg-secondary/30 px-2 py-1 text-xs text-foreground">
+                {n.text || <span className="italic text-muted-foreground">(vazia)</span>}
+              </p>
             </li>
           );
         })}

@@ -18,6 +18,10 @@ export interface Answer {
   notes?: NoteEntry[];
   /** Groups associated with the destination of this answer. */
   groupIds?: string[];
+  /** When set, destination is a Question Group (overrides numeric target). */
+  targetGroupId?: string;
+  /** Reference to the answer catalog this item was picked from. */
+  catalogId?: string;
   /** When target === "end", optionally reference a classification from the catalog. */
   classificationId?: string;
   /** When set, overrides the catalog classification note locally for this answer. */
@@ -32,6 +36,8 @@ export interface Question {
   /** Legacy single note. Kept for back-compat; new code uses `notes`. */
   note?: string;
   notes?: NoteEntry[];
+  /** Reference to question catalog entry. */
+  catalogId?: string;
 }
 
 export type QuestionStatus = "active" | "orphan" | "final" | "loop";
@@ -54,12 +60,36 @@ export interface Classification {
   link?: string;
 }
 
+export interface QuestionCatalogItem {
+  id: string;
+  title: string;
+  description?: string;
+  active: boolean;
+}
+
+export interface AnswerCatalogItem {
+  id: string;
+  text: string;
+  description?: string;
+  active: boolean;
+}
+
+export interface NoteCatalogItem {
+  id: string;
+  title: string;
+  text: string;
+  active: boolean;
+}
+
 export interface Flow {
   version: string;
   questions: Record<number, Question>;
   rootId: number;
   groups?: QuestionGroup[];
   classifications?: Classification[];
+  questionCatalog?: QuestionCatalogItem[];
+  answerCatalog?: AnswerCatalogItem[];
+  noteCatalog?: NoteCatalogItem[];
 }
 
 /** Returns the unified notes list, including legacy single-string note as internal. */

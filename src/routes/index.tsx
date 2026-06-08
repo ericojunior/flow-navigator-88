@@ -10,6 +10,7 @@ import { DiagnosticPanel } from "@/components/flow/DiagnosticPanel";
 import { Simulator } from "@/components/flow/Simulator";
 import { MiniMap } from "@/components/flow/MiniMap";
 import { TreeView } from "@/components/flow/TreeView";
+import { PickerModal, type PickerItem } from "@/components/flow/PickerModal";
 import {
   ChevronLeft,
   ChevronRight,
@@ -59,6 +60,9 @@ function EditorPage() {
   const [rightTab, setRightTab] = useState<RightTab>("properties");
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
+  const [newQuestionPickerOpen, setNewQuestionPickerOpen] = useState(false);
+  const questionCatalog = flow.questionCatalog ?? [];
+  const addQuestionCatalogItem = useFlow((s) => s.addQuestionCatalogItem);
 
   const currentId = path[path.length - 1];
 
@@ -161,8 +165,7 @@ function EditorPage() {
           <ToolbarPill onClick={() => generateLargeFlow(1000)} icon={<Sparkles className="h-3.5 w-3.5" />} label="Teste 1.000" />
           <button
             onClick={() => {
-              const id = addQuestion();
-              navigateTo(id);
+              setNewQuestionPickerOpen(true);
             }}
             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
           >
@@ -347,6 +350,25 @@ function EditorPage() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onSelect={navigateTo} />
       {simOpen && <Simulator onClose={() => setSimOpen(false)} />}
+      {newQuestionPickerOpen && (
+        <PickerModal
+          title="Selecionar pergunta do catálogo"
+          primaryLabel="Pergunta"
+          searchHint="Filtro de pesquisa. Digite a pergunta pela qual deseja pesquisar"
+          items={questionCatalog.map<PickerItem>((c) => ({
+            id: c.id,
+            primary: c.title,
+            secondary: c.description,
+            active: c.active,
+          }))}
+          onPick={(cid) => {
+            const id = addQuestion(cid);
+            navigateTo(id);
+          }}
+          onClose={() => setNewQuestionPickerOpen(false)}
+          onCreate={(text) => addQuestionCatalogItem({ title: text, active: true })}
+        />
+      )}
     </div>
   );
 }

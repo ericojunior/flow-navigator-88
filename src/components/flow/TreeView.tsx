@@ -14,6 +14,8 @@ interface LaidOutNode {
     label: string;
     marker: string;
     code?: string;
+    /** When set, this is a group-destination terminal (not an end). */
+    groupColor?: string;
   };
 }
 interface Edge {
@@ -40,6 +42,7 @@ function computeLayout(
   const edges: Edge[] = [];
   const seen = new Set<number>();
   const classifications = flow.classifications ?? [];
+  const groups = flow.groups ?? [];
   let terminalCounter = 0;
 
   // returns subtree width in "slots" (multiples of NODE_W + H_GAP)
@@ -58,9 +61,30 @@ function computeLayout(
 
     type Child =
       | { kind: "q"; tid: number; marker: string; text: string }
-      | { kind: "end"; terminalId: number; marker: string; text: string; classifName?: string; classifCode?: string; classifMarker?: string };
+      | {
+          kind: "end";
+          terminalId: number;
+          marker: string;
+          text: string;
+          classifName?: string;
+          classifCode?: string;
+          classifMarker?: string;
+          groupName?: string;
+          groupColor?: string;
+        };
 
     const children: Child[] = q.answers.map((a): Child => {
+      if (a.targetGroupId) {
+        const g = groups.find((x) => x.id === a.targetGroupId);
+        return {
+          kind: "end",
+          terminalId: ++terminalCounter,
+          marker: a.marker,
+          text: a.text,
+          groupName: g?.name ?? "Grupo",
+          groupColor: g?.color ?? "#6B7280",
+        };
+      }
       if (a.target === "end") {
         const c = a.classificationId ? classifications.find((x) => x.id === a.classificationId) : null;
         return {
@@ -98,9 +122,10 @@ function computeLayout(
           y: (depth + 1) * (NODE_H + V_GAP),
           terminal: {
             key,
-            label: child.classifName ?? "Encerrar fluxo",
+            label: child.groupName ?? child.classifName ?? "Encerrar fluxo",
             marker: child.classifMarker ?? "normal",
             code: child.classifCode,
+            groupColor: child.groupColor,
           },
         });
       }
@@ -312,7 +337,7 @@ export function TreeView({
     return map;
   }, [flow]);
 
-  const [notePopup, setNotePopup] = useState<{ id: number; x: number; y: number } | null>(null);
+  const [notePopup, setNotePopup] = useState<{ id: number; sx: number; sy: number } | null>(null);
 
   return (
     <div
@@ -432,6 +457,9 @@ export function TreeView({
             {layout.nodes.map((n, idx) => {
               if (n.terminal) {
                 const tcolor = markerColor(n.terminal.marker);
+                const isGroup = !!n.terminal.groupColor;
+                const fillBg = isGroup ? `${n.terminal.groupColor}1A` : "#FFFFFF";
+                const strokeC = isGroup ? n.terminal.groupColor! : tcolor;
                 return (
                   <g
                     key={`t-${n.terminal.key}-${idx}`}
@@ -441,21 +469,21 @@ export function TreeView({
                       width={NODE_W}
                       height={NODE_H}
                       rx={NODE_H / 2}
-                      fill="#FFFFFF"
-                      stroke={tcolor}
+                      fill={fillBg}
+                      stroke={strokeC}
                       strokeWidth={1.5}
                       strokeDasharray="3 3"
                     />
-                    <circle cx={14} cy={NODE_H / 2} r={5} fill={tcolor} />
+                    <circle cx={14} cy={NODE_H / 2} r={5} fill={strokeC} />
                     <text
                       x={26}
                       y={NODE_H / 2 - 4}
                       fontFamily="Raleway, sans-serif"
                       fontSize={10}
                       fontWeight={700}
-                      fill={tcolor}
+                      fill={strokeC}
                     >
-                      ENCERRA
+                      {isGroup ? "GRUPO" : "ENCERRA"}
                     </text>
                     <text
                       x={26}
@@ -540,7 +568,13 @@ export function TreeView({
                       style={{ cursor: "pointer" }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setNotePopup({ id: n.id, x: n.x + NODE_W, y: n.y });
+                        const vp = viewportRef.current?.getBoundingClientRect();
+                        const ev = e as unknown as React.MouseEvent;
+                        setNotePopup({
+                          id: n.id,
+                          sx: ev.clientX - (vp?.left ?? 0) + 8,
+                          sy: ev.clientY - (vp?.top ?? 0) + 8,
+                        });
                       }}
                     >
                       <rect width={14} height={14} rx={3} fill="#FFCD07" stroke="#1F2937" strokeWidth={0.6} />
@@ -582,59 +616,65 @@ export function TreeView({
               );
             })}
           </svg>
-          {notePopup && (() => {
-            const q = flow.questions[notePopup.id];
-            if (!q) return null;
-            const qns = getNotes(q);
-            const answerNotes = q.answers
-              .map((a) => ({ a, notes: getNotes(a) }))
-              .filter((x) => x.notes.length > 0);
-            return (
-              <div
-                style={{
-                  position: "absolute",
-                  left: notePopup.x + 6,
-                  top: notePopup.y,
-                  width: 280,
-                  zIndex: 5,
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                className="border border-border bg-card shadow-lg"
-              >
-                <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-2 py-1 text-[11px] font-semibold">
-                  <span>Notas de #{q.id}</span>
-                  <button onClick={() => setNotePopup(null)} className="p-0.5 hover:bg-background">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-                <div className="max-h-64 space-y-2 overflow-auto p-2 text-[11px]">
-                  {qns.length === 0 && answerNotes.length === 0 && (
-                    <p className="text-muted-foreground">Sem notas.</p>
-                  )}
-                  {qns.map((nt, i) => (
-                    <div key={`q-${i}`} className="border-l-2 border-primary/60 bg-secondary/30 p-1.5">
-                      <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
-                        Pergunta · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
-                      </div>
-                      <p className="whitespace-pre-wrap text-foreground">{nt.text || <span className="italic text-muted-foreground">(vazia)</span>}</p>
-                    </div>
-                  ))}
-                  {answerNotes.map(({ a, notes }) =>
-                    notes.map((nt, i) => (
-                      <div key={`a-${a.id}-${i}`} className="border-l-2 border-amber-400 bg-amber-50/60 p-1.5">
-                        <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
-                          Resposta "{a.text.slice(0, 20)}" · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
-                        </div>
-                        <p className="whitespace-pre-wrap text-foreground">{nt.text || <span className="italic text-muted-foreground">(vazia)</span>}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })()}
         </div>
+
+        {/* Notes popover (positioned in viewport coords, outside scaled canvas) */}
+        {notePopup && (() => {
+          const q = flow.questions[notePopup.id];
+          if (!q) return null;
+          const qns = getNotes(q);
+          const answerNotes = q.answers
+            .map((a) => ({ a, notes: getNotes(a) }))
+            .filter((x) => x.notes.length > 0);
+          return (
+            <div
+              style={{
+                position: "absolute",
+                left: Math.min(notePopup.sx, (viewportRef.current?.clientWidth ?? 800) - 296),
+                top: Math.min(notePopup.sy, (viewportRef.current?.clientHeight ?? 600) - 280),
+                width: 280,
+                zIndex: 50,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className="border border-border bg-card shadow-xl"
+            >
+              <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-2 py-1 text-[11px] font-semibold">
+                <span>Notas de #{q.id}</span>
+                <button onClick={() => setNotePopup(null)} className="p-0.5 hover:bg-background">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="max-h-64 space-y-2 overflow-auto p-2 text-[11px]">
+                {qns.length === 0 && answerNotes.length === 0 && (
+                  <p className="text-muted-foreground">Sem notas.</p>
+                )}
+                {qns.map((nt, i) => (
+                  <div key={`q-${i}`} className="border-l-2 border-primary/60 bg-secondary/30 p-1.5">
+                    <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
+                      Pergunta · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
+                    </div>
+                    <p className="whitespace-pre-wrap text-foreground">
+                      {nt.text || <span className="italic text-muted-foreground">(vazia)</span>}
+                    </p>
+                  </div>
+                ))}
+                {answerNotes.map(({ a, notes }) =>
+                  notes.map((nt, i) => (
+                    <div key={`a-${a.id}-${i}`} className="border-l-2 border-amber-400 bg-amber-50/60 p-1.5">
+                      <div className="mb-0.5 text-[9px] uppercase text-muted-foreground">
+                        Resposta "{a.text.slice(0, 20)}" · {nt.visibility === "internal" ? "Interna" : nt.visibility === "external" ? "Externa" : "Ambas"}
+                      </div>
+                      <p className="whitespace-pre-wrap text-foreground">
+                        {nt.text || <span className="italic text-muted-foreground">(vazia)</span>}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Floating controls inside the canvas */}
         <div className="pointer-events-auto absolute bottom-4 right-4 flex items-center gap-1 rounded-full border border-border bg-card/95 px-1.5 py-1 shadow-sm backdrop-blur">
