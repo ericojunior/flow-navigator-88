@@ -90,11 +90,11 @@ function buildFlow(qs: Question[]): Flow {
       { id: "ac-11", text: "A Operadora autorizou/agendou em bairro distante da residência do beneficiário", active: false },
     ],
     noteCatalog: [
-      { id: "nc-1", title: "Base legal — Lei 9.656/98", text: "Trata-se de contrato firmado na vigência da Lei 9.656/98." },
-      { id: "nc-2", title: "Prazo de comunicação", text: "A comunicação prévia deve respeitar a antecedência mínima de 60 (sessenta) dias." },
-      { id: "nc-3", title: "Orientação ao analista", text: "Confirmar dados cadastrais junto ao sistema da operadora antes de prosseguir." },
-      { id: "nc-4", title: "Atendimento de urgência/emergência", text: "Procedimentos de urgência/emergência têm regras específicas conforme RN vigente." },
-      { id: "nc-5", title: "Encaminhamento à fiscalização", text: "Caso a operadora não responda em 5 dias úteis, encaminhar à fiscalização." },
+      { id: "nc-1", title: "Base legal — Lei 9.656/98", text: "Trata-se de contrato firmado na vigência da Lei 9.656/98.", active: true },
+      { id: "nc-2", title: "Prazo de comunicação", text: "A comunicação prévia deve respeitar a antecedência mínima de 60 (sessenta) dias.", active: true },
+      { id: "nc-3", title: "Orientação ao analista", text: "Confirmar dados cadastrais junto ao sistema da operadora antes de prosseguir.", active: true },
+      { id: "nc-4", title: "Atendimento de urgência/emergência", text: "Procedimentos de urgência/emergência têm regras específicas conforme RN vigente.", active: true },
+      { id: "nc-5", title: "Encaminhamento à fiscalização", text: "Caso a operadora não responda em 5 dias úteis, encaminhar à fiscalização.", active: true },
     ],
   };
 }
