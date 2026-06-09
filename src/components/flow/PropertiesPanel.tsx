@@ -372,6 +372,32 @@ const visMeta: Record<NoteVisibility, { label: string; Icon: typeof Eye; tint: s
   both: { label: "Ambas (interna + externa)", Icon: Globe, tint: "#00A859" },
 };
 
+function IconTab({
+  active,
+  onClick,
+  Icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  Icon: typeof Eye;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold ${
+        active
+          ? "border-primary bg-card text-primary"
+          : "border-transparent text-muted-foreground hover:bg-secondary"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
+  );
+}
+
 function NotesBlock({
   notes,
   onChange,
