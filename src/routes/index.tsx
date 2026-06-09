@@ -5,6 +5,7 @@ import { FlowBreadcrumb } from "@/components/flow/Breadcrumb";
 import { QuestionBlock } from "@/components/flow/QuestionBlock";
 import { FlowSidebar } from "@/components/flow/Sidebar";
 import { PropertiesPanel } from "@/components/flow/PropertiesPanel";
+import { GroupPanel } from "@/components/flow/GroupPanel";
 import { CommandPalette } from "@/components/flow/CommandPalette";
 import { DiagnosticPanel } from "@/components/flow/DiagnosticPanel";
 import { Simulator } from "@/components/flow/Simulator";
@@ -61,6 +62,7 @@ function EditorPage() {
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
   const [newQuestionPickerOpen, setNewQuestionPickerOpen] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const questionCatalog = flow.questionCatalog ?? [];
   const addQuestionCatalogItem = useFlow((s) => s.addQuestionCatalogItem);
 
@@ -91,6 +93,7 @@ function EditorPage() {
       return [...prev, id];
     });
     setRailOffset(0);
+    setSelectedGroupId(null);
   }, []);
 
   const jumpInPath = useCallback((idx: number) => {
@@ -185,7 +188,12 @@ function EditorPage() {
         <div className="grid grid-cols-12 gap-4">
           {!treeOpen && (
             <div className="col-span-3">
-              <FlowSidebar currentId={currentId} onSelect={navigateTo} />
+              <FlowSidebar
+                currentId={currentId}
+                onSelect={navigateTo}
+                currentGroupId={selectedGroupId}
+                onSelectGroup={(gid) => setSelectedGroupId(gid)}
+              />
             </div>
           )}
 
@@ -335,7 +343,11 @@ function EditorPage() {
               </div>
               <div>
                 {rightTab === "properties" ? (
-                  <PropertiesPanel questionId={currentId} />
+                  selectedGroupId ? (
+                    <GroupPanel groupId={selectedGroupId} />
+                  ) : (
+                    <PropertiesPanel questionId={currentId} />
+                  )
                 ) : (
                   <DiagnosticPanel onSelect={navigateTo} />
                 )}

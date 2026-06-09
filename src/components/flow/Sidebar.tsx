@@ -1,21 +1,36 @@
 import { useMemo, useState } from "react";
 import { useFlow, diagnose, getStatus } from "@/lib/flow-store";
-import { Search, AlertTriangle, GitBranch, Repeat, Flag } from "lucide-react";
+import { Search, AlertTriangle, GitBranch, Repeat, Flag, Lock } from "lucide-react";
 
 type Filter = "all" | "orphans" | "noTarget" | "loops" | "finals";
 
 export function FlowSidebar({
   currentId,
   onSelect,
+  currentGroupId,
+  onSelectGroup,
 }: {
   currentId: number;
   onSelect: (id: number) => void;
+  currentGroupId?: string | null;
+  onSelectGroup?: (gid: string) => void;
 }) {
   const flow = useFlow((s) => s.flow);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
   const diag = useMemo(() => diagnose(flow), [flow]);
+
+  // Groups that are currently used as destinations by any answer.
+  const destinationGroups = useMemo(() => {
+    const used = new Set<string>();
+    Object.values(flow.questions).forEach((qq) => {
+      qq.answers.forEach((a) => {
+        if (a.targetGroupId) used.add(a.targetGroupId);
+      });
+    });
+    return (flow.groups ?? []).filter((g) => used.has(g.id));
+  }, [flow]);
 
   const ids = useMemo(() => {
     const all = Object.keys(flow.questions).map(Number).sort((a, b) => a - b);
@@ -115,6 +130,39 @@ export function FlowSidebar({
           )}
         </ul>
       </div>
+      {destinationGroups.length > 0 && (
+        <div className="border-t border-border">
+          <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Grupos (destinos)
+          </div>
+          <ul>
+            {destinationGroups.map((g) => {
+              const active = currentGroupId === g.id;
+              return (
+                <li key={g.id}>
+                  <button
+                    onClick={() => onSelectGroup?.(g.id)}
+                    className={`flex w-full items-center gap-3 border-l-2 px-3 py-2.5 text-left text-sm hover:bg-secondary ${
+                      active ? "border-primary bg-secondary font-semibold" : "border-transparent"
+                    }`}
+                  >
+                    <span
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                      style={{ backgroundColor: `${g.color}1A` }}
+                    >
+                      <Lock className="h-3.5 w-3.5" style={{ color: g.color }} />
+                    </span>
+                    <span className="flex-1 truncate text-foreground">{g.name}</span>
+                    <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Grupo
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </aside>
   );
 }

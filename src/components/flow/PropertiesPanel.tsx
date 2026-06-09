@@ -2,8 +2,18 @@ import { useState } from "react";
 import { useFlow } from "@/lib/flow-store";
 import type { NoteEntry, NoteVisibility } from "@/lib/flow-types";
 import { getNotes } from "@/lib/flow-types";
-import { Trash2, Plus, Tags, FileText, Settings2, Eye, EyeOff, Globe, Repeat, ListPlus } from "lucide-react";
-import { GroupsModal } from "./GroupsModal";
+import {
+  Trash2,
+  Plus,
+  FileText,
+  Eye,
+  EyeOff,
+  Globe,
+  Repeat,
+  ListPlus,
+  HelpCircle,
+  ListChecks,
+} from "lucide-react";
 import { ClassificationsModal } from "./ClassificationsModal";
 import { PickerModal, type PickerItem } from "./PickerModal";
 
@@ -14,7 +24,6 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
   const updateAnswer = useFlow((s) => s.updateAnswer);
   const addAnswer = useFlow((s) => s.addAnswer);
   const removeAnswer = useFlow((s) => s.removeAnswer);
-  const toggleAnswerGroup = useFlow((s) => s.toggleAnswerGroup);
   const addQuestionCatalogItem = useFlow((s) => s.addQuestionCatalogItem);
   const addAnswerCatalogItem = useFlow((s) => s.addAnswerCatalogItem);
   const addNoteCatalogItem = useFlow((s) => s.addNoteCatalogItem);
@@ -23,7 +32,6 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
   const questionCatalog = flow.questionCatalog ?? [];
   const answerCatalog = flow.answerCatalog ?? [];
   const noteCatalog = flow.noteCatalog ?? [];
-  const [groupsForAnswer, setGroupsForAnswer] = useState<string | null>(null);
   const [classifOpen, setClassifOpen] = useState(false);
   const [pickFor, setPickFor] = useState<string | null>(null);
   const [questionPickerOpen, setQuestionPickerOpen] = useState(false);
@@ -31,6 +39,7 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
   const [notePickerFor, setNotePickerFor] = useState<
     { scope: "question" } | { scope: "answer"; aid: string } | null
   >(null);
+  const [tab, setTab] = useState<"question" | "answers">("question");
 
   if (!q) {
     return <div className="p-4 text-xs text-muted-foreground">Selecione uma pergunta.</div>;
@@ -49,7 +58,24 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
           <span className="truncate text-sm font-medium text-foreground">{q.title}</span>
         </div>
       </div>
+      {/* Icon tabs */}
+      <div className="flex border-b border-border bg-secondary/30">
+        <IconTab
+          active={tab === "question"}
+          onClick={() => setTab("question")}
+          Icon={HelpCircle}
+          label="Pergunta"
+        />
+        <IconTab
+          active={tab === "answers"}
+          onClick={() => setTab("answers")}
+          Icon={ListChecks}
+          label={`Respostas${q.answers.length ? ` (${q.answers.length})` : ""}`}
+        />
+      </div>
       <div className="max-h-[700px] overflow-auto p-4 space-y-4">
+        {tab === "question" && (
+        <>
         {/* Question (from catalog) */}
         <div>
           <div className="mb-1 flex items-center justify-between">
@@ -75,7 +101,10 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
           onAdd={() => setNotePickerFor({ scope: "question" })}
           label="Notas explicativas (pergunta)"
         />
+        </>
+        )}
 
+        {tab === "answers" && (
         <div>
           <div className="mb-2 flex items-center justify-between">
             <label className="text-xs font-medium text-foreground">Respostas</label>
@@ -156,46 +185,6 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
                   </select>
                 </div>
 
-                <div className="mt-2 border-t border-border pt-2">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
-                      <Tags className="h-3 w-3" /> Grupos do destino
-                    </span>
-                    <button
-                      onClick={() => setGroupsForAnswer(a.id)}
-                      className="inline-flex items-center gap-1 border border-border bg-background px-2 py-0.5 text-[11px] hover:bg-secondary"
-                    >
-                      <Settings2 className="h-3 w-3" /> Selecionar
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {(a.groupIds ?? []).length === 0 && (
-                      <span className="text-[11px] text-muted-foreground">Nenhum grupo.</span>
-                    )}
-                    {(a.groupIds ?? []).map((gid) => {
-                      const g = groups.find((x) => x.id === gid);
-                      if (!g) return null;
-                      return (
-                        <span
-                          key={gid}
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                          style={{
-                            backgroundColor: `${g.color}1A`,
-                            color: g.color,
-                            border: `1px solid ${g.color}`,
-                          }}
-                        >
-                          <span
-                            className="inline-block h-1.5 w-1.5 rounded-full"
-                            style={{ backgroundColor: g.color }}
-                          />
-                          {g.name}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-
                 {a.target === "end" && !a.targetGroupId && (
                   <div className="mt-2 border-t border-border pt-2">
                     <div className="mb-0.5 flex items-center justify-between text-[10px] uppercase text-muted-foreground">
@@ -255,22 +244,9 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
             ))}
           </ul>
         </div>
+        )}
       </div>
 
-      {groupsForAnswer &&
-        (() => {
-          const a = q.answers.find((x) => x.id === groupsForAnswer);
-          if (!a) return null;
-          return (
-            <GroupsModal
-              selectedIds={a.groupIds ?? []}
-              onToggle={(gid) => toggleAnswerGroup(q.id, a.id, gid)}
-              title="Grupos do destino da resposta"
-              subtitle={`Resposta: "${a.text}"`}
-              onClose={() => setGroupsForAnswer(null)}
-            />
-          );
-        })()}
       {classifOpen && (
         <ClassificationsModal
           onClose={() => {
@@ -395,6 +371,32 @@ const visMeta: Record<NoteVisibility, { label: string; Icon: typeof Eye; tint: s
   external: { label: "Externa", Icon: Eye, tint: "#1351B4" },
   both: { label: "Ambas (interna + externa)", Icon: Globe, tint: "#00A859" },
 };
+
+function IconTab({
+  active,
+  onClick,
+  Icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  Icon: typeof Eye;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold ${
+        active
+          ? "border-primary bg-card text-primary"
+          : "border-transparent text-muted-foreground hover:bg-secondary"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
+  );
+}
 
 function NotesBlock({
   notes,

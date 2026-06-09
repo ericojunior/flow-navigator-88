@@ -46,6 +46,8 @@ export interface QuestionGroup {
   id: string;
   name: string;
   color: string; // hex
+  /** Optional next destination question when the flow enters this group. */
+  targetQuestionId?: number;
 }
 
 export interface Classification {
