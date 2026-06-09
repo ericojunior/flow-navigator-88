@@ -1,11 +1,11 @@
-@import "tailwindcss" source(none);
-@source "../src";
 @import "tw-animate-css";
+@import "tailwindcss" source(none);
+
+@source "../src";
 
 @custom-variant dark (&:is(.dark *));
 
 /* Gov.br typography — Raleway is the official open-source pairing for Rawline */
-@import url("https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&display=swap");
 
 /*
  * Design system definition.

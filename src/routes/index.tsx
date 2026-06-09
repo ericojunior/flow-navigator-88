@@ -17,12 +17,10 @@ import {
   ChevronRight,
   PlayCircle,
   CheckCircle2,
-  ListOrdered,
   Save,
   Plus,
   ArrowLeft,
   History,
-  Sparkles,
   Map,
   Menu,
   Home,
@@ -49,9 +47,7 @@ type RightTab = "properties" | "diagnostics";
 function EditorPage() {
   const flow = useFlow((s) => s.flow);
   const addQuestion = useFlow((s) => s.addQuestion);
-  const generateLargeFlow = useFlow((s) => s.generateLargeFlow);
   const bumpVersion = useFlow((s) => s.bumpVersion);
-  const renumberByFlow = useFlow((s) => s.renumberByFlow);
 
   const [path, setPath] = useState<number[]>([flow.rootId]);
   const [railOffset, setRailOffset] = useState(0); // 0 = end of path; positive = look back
@@ -163,9 +159,7 @@ function EditorPage() {
             label={treeOpen ? "Ver trilho" : "Ver árvore"}
           />
           <ToolbarPill onClick={handleValidate} icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Validar" />
-          <ToolbarPill onClick={renumberByFlow} icon={<ListOrdered className="h-3.5 w-3.5" />} label="Renumerar" />
           <ToolbarPill onClick={handleSave} icon={<Save className="h-3.5 w-3.5" />} label="Salvar" />
-          <ToolbarPill onClick={() => generateLargeFlow(1000)} icon={<Sparkles className="h-3.5 w-3.5" />} label="Teste 1.000" />
           <button
             onClick={() => {
               setNewQuestionPickerOpen(true);

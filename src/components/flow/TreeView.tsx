@@ -8,13 +8,11 @@ interface LaidOutNode {
   x: number;
   y: number;
   duplicate?: boolean;
-  /** Synthetic terminal node representing an end-answer with a classification. */
   terminal?: {
     key: string;
     label: string;
     marker: string;
     code?: string;
-    /** When set, this is a group-destination terminal (not an end). */
     groupColor?: string;
   };
 }
@@ -31,8 +29,9 @@ interface Edge {
 
 const NODE_W = 130;
 const NODE_H = 54;
-const H_GAP = 16;
-const V_GAP = 60;
+const H_GAP = 70;
+const V_GAP = 54;
+const VIEWPORT_OVERSCAN = 420;
 
 function computeLayout(
   flow: ReturnType<typeof useFlow.getState>["flow"],
@@ -40,142 +39,78 @@ function computeLayout(
 ) {
   const nodes: LaidOutNode[] = [];
   const edges: Edge[] = [];
-  const seen = new Set<number>();
-  const classifications = flow.classifications ?? [];
-  const groups = flow.groups ?? [];
-  let terminalCounter = 0;
+  const depthById = new Map<number, number>();
+  const levels = new Map<number, number[]>();
+  const queue: number[] = [];
 
-  // returns subtree width in "slots" (multiples of NODE_W + H_GAP)
-  function place(id: number, depth: number, xOffset: number): number {
-    const q = flow.questions[id];
-    if (!q) {
-      nodes.push({ id, x: xOffset, y: depth * (NODE_H + V_GAP), duplicate: true });
-      return NODE_W + H_GAP;
-    }
-    if (seen.has(id)) {
-      // render as duplicate reference (no children)
-      nodes.push({ id, x: xOffset, y: depth * (NODE_H + V_GAP), duplicate: true });
-      return NODE_W + H_GAP;
-    }
-    seen.add(id);
-
-    type Child =
-      | { kind: "q"; tid: number; marker: string; text: string }
-      | {
-          kind: "end";
-          terminalId: number;
-          marker: string;
-          text: string;
-          classifName?: string;
-          classifCode?: string;
-          classifMarker?: string;
-          groupName?: string;
-          groupColor?: string;
-        };
-
-    const children: Child[] = q.answers.map((a): Child => {
-      if (a.targetGroupId) {
-        const g = groups.find((x) => x.id === a.targetGroupId);
-        return {
-          kind: "end",
-          terminalId: ++terminalCounter,
-          marker: a.marker,
-          text: a.text,
-          groupName: g?.name ?? "Grupo",
-          groupColor: g?.color ?? "#6B7280",
-        };
-      }
-      if (a.target === "end") {
-        const c = a.classificationId ? classifications.find((x) => x.id === a.classificationId) : null;
-        return {
-          kind: "end",
-          terminalId: ++terminalCounter,
-          marker: a.marker,
-          text: a.text,
-          classifName: c?.name,
-          classifCode: c?.code,
-          classifMarker: c?.marker,
-        };
-      }
-      return { kind: "q", tid: a.target as number, marker: a.marker, text: a.text };
-    });
-
-    if (children.length === 0) {
-      nodes.push({ id, x: xOffset, y: depth * (NODE_H + V_GAP) });
-      return NODE_W + H_GAP;
-    }
-
-    let cursor = xOffset;
-    const childCenters: number[] = [];
-    for (const child of children) {
-      const start = cursor;
-      let w: number;
-      if (child.kind === "q") {
-        w = place(child.tid, depth + 1, cursor);
-      } else {
-        // synthetic terminal node
-        w = NODE_W + H_GAP;
-        const key = `end-${id}-${child.terminalId}`;
-        nodes.push({
-          id: -child.terminalId - 1_000_000, // negative synthetic id, kept stable per layout
-          x: cursor,
-          y: (depth + 1) * (NODE_H + V_GAP),
-          terminal: {
-            key,
-            label: child.groupName ?? child.classifName ?? "Encerrar fluxo",
-            marker: child.classifMarker ?? "normal",
-            code: child.classifCode,
-            groupColor: child.groupColor,
-          },
-        });
-      }
-      const center = start + w / 2;
-      childCenters.push(center);
-      cursor += w;
-    }
-    const totalW = cursor - xOffset;
-    const myCenter = (childCenters[0] + childCenters[childCenters.length - 1]) / 2;
-    const myX = myCenter - NODE_W / 2 - H_GAP / 2;
-    const myY = depth * (NODE_H + V_GAP);
-    nodes.push({ id, x: myX, y: myY });
-
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      const cx = childCenters[i] - H_GAP / 2;
-      edges.push({
-        fromId: id,
-        toId: child.kind === "q" ? child.tid : -child.terminalId - 1_000_000,
-        fromX: myCenter - H_GAP / 2,
-        fromY: myY + NODE_H,
-        toX: cx,
-        toY: (depth + 1) * (NODE_H + V_GAP),
-        marker: child.marker,
-        label: child.text,
-      });
-    }
-    return totalW;
+  if (flow.questions[rootId]) {
+    depthById.set(rootId, 0);
+    queue.push(rootId);
   }
 
-  const totalWidth = place(rootId, 0, 0);
+  while (queue.length) {
+    const id = queue.shift()!;
+    const depth = depthById.get(id) ?? 0;
+    const q = flow.questions[id];
+    if (!q) continue;
 
-  // also include disconnected questions in a separate band at the bottom
-  const placed = new Set(nodes.map((n) => n.id));
-  const orphans = Object.keys(flow.questions)
+    q.answers.forEach((answer) => {
+      if (typeof answer.target !== "number" || !flow.questions[answer.target]) return;
+      if (depthById.has(answer.target)) return;
+      depthById.set(answer.target, depth + 1);
+      queue.push(answer.target);
+    });
+  }
+
+  const reachableIds = new Set(depthById.keys());
+
+  Object.keys(flow.questions)
     .map(Number)
-    .filter((id) => !placed.has(id));
-  const maxDepth = nodes.reduce((m, n) => Math.max(m, n.y), 0);
-  const orphanY = maxDepth + NODE_H + V_GAP * 2;
-  orphans.forEach((id, i) => {
-    nodes.push({
-      id,
-      x: i * (NODE_W + H_GAP),
-      y: orphanY,
-      duplicate: false,
+    .sort((a, b) => a - b)
+    .forEach((id) => {
+      if (!depthById.has(id)) depthById.set(id, depthById.size + 1);
+      const depth = depthById.get(id)!;
+      const ids = levels.get(depth) ?? [];
+      ids.push(id);
+      levels.set(depth, ids);
+    });
+
+  for (const [depth, ids] of levels) {
+    ids.forEach((id, index) => {
+      nodes.push({
+        id,
+        x: 24 + index * (NODE_W + H_GAP),
+        y: 24 + depth * (NODE_H + V_GAP),
+        duplicate: !reachableIds.has(id),
+      });
+    });
+  }
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+
+  Object.values(flow.questions).forEach((q) => {
+    const from = nodeById.get(q.id);
+    if (!from) return;
+
+    q.answers.forEach((answer) => {
+      if (typeof answer.target !== "number") return;
+      const to = nodeById.get(answer.target);
+      if (!to) return;
+      edges.push({
+        fromId: q.id,
+        toId: answer.target,
+        fromX: from.x + NODE_W / 2,
+        fromY: from.y + NODE_H,
+        toX: to.x + NODE_W / 2,
+        toY: to.y,
+        marker: answer.marker,
+        label: answer.text,
+      });
     });
   });
 
-  const width = Math.max(totalWidth, orphans.length * (NODE_W + H_GAP)) + 40;
-  const height = (orphans.length > 0 ? orphanY : maxDepth) + NODE_H + 40;
+  const width = Math.max(...nodes.map((n) => n.x + NODE_W), NODE_W) + 48;
+  const height = Math.max(...nodes.map((n) => n.y + NODE_H), NODE_H) + 48;
 
   return { nodes, edges, width, height };
 }
@@ -211,10 +146,25 @@ export function TreeView({
   const [search, setSearch] = useState("");
   const viewportRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState({ x: 40, y: 40 });
+  const [viewportSize, setViewportSize] = useState({ width: 1, height: 1 });
   const panningRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
 
   const layout = useMemo(() => computeLayout(flow, rootId), [flow, rootId]);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      setViewportSize({ width: el.clientWidth || 1, height: el.clientHeight || 1 });
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // center current node on open
   useEffect(() => {
@@ -322,6 +272,43 @@ export function TreeView({
     return m;
   }, [search, layout, flow]);
 
+  const visibleBounds = useMemo(() => {
+    const left = -pan.x / zoom - VIEWPORT_OVERSCAN;
+    const top = -pan.y / zoom - VIEWPORT_OVERSCAN;
+    const right = (viewportSize.width - pan.x) / zoom + VIEWPORT_OVERSCAN;
+    const bottom = (viewportSize.height - pan.y) / zoom + VIEWPORT_OVERSCAN;
+    return { left, top, right, bottom };
+  }, [pan, zoom, viewportSize]);
+
+  const visibleNodes = useMemo(
+    () =>
+      layout.nodes.filter(
+        (n) =>
+          n.x + NODE_W >= visibleBounds.left &&
+          n.x <= visibleBounds.right &&
+          n.y + NODE_H >= visibleBounds.top &&
+          n.y <= visibleBounds.bottom
+      ),
+    [layout.nodes, visibleBounds]
+  );
+
+  const visibleEdges = useMemo(
+    () =>
+      layout.edges.filter((e) => {
+        const minX = Math.min(e.fromX, e.toX);
+        const maxX = Math.max(e.fromX, e.toX);
+        const minY = Math.min(e.fromY, e.toY);
+        const maxY = Math.max(e.fromY, e.toY);
+        return (
+          maxX >= visibleBounds.left &&
+          minX <= visibleBounds.right &&
+          maxY >= visibleBounds.top &&
+          minY <= visibleBounds.bottom
+        );
+      }),
+    [layout.edges, visibleBounds]
+  );
+
   // Aggregate group ids per question id from incoming answers (groups now live on answers)
   const groupsByNode = useMemo(() => {
     const map: Record<number, Set<string>> = {};
@@ -395,23 +382,18 @@ export function TreeView({
         onMouseUp={endPan}
         onMouseLeave={endPan}
       >
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: "0 0",
-            willChange: "transform",
-          }}
+        <svg
+          className="absolute inset-0 h-full w-full"
+          width={viewportSize.width}
+          height={viewportSize.height}
+          viewBox={`0 0 ${viewportSize.width} ${viewportSize.height}`}
+          style={{ display: "block" }}
         >
-          <svg
-            width={layout.width}
-            height={layout.height}
-            viewBox={`0 0 ${layout.width} ${layout.height}`}
-            style={{ display: "block" }}
+          <g
+            transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}
+            style={{ willChange: "transform" }}
           >
-            {layout.edges.map((e, i) => {
+            {visibleEdges.map((e, i) => {
               const midY = (e.fromY + e.toY) / 2;
               const path = `M ${e.fromX} ${e.fromY} L ${e.fromX} ${midY} L ${e.toX} ${midY} L ${e.toX} ${e.toY}`;
               const color = markerColor(e.marker);
@@ -454,7 +436,7 @@ export function TreeView({
                 </g>
               );
             })}
-            {layout.nodes.map((n, idx) => {
+            {visibleNodes.map((n, idx) => {
               if (n.terminal) {
                 const tcolor = markerColor(n.terminal.marker);
                 const isGroup = !!n.terminal.groupColor;
@@ -615,8 +597,8 @@ export function TreeView({
                 </g>
               );
             })}
-          </svg>
-        </div>
+          </g>
+        </svg>
 
         {/* Notes popover (positioned in viewport coords, outside scaled canvas) */}
         {notePopup && (() => {
@@ -705,7 +687,7 @@ export function TreeView({
         </div>
 
         <div className="pointer-events-none absolute bottom-4 left-4 rounded-md border border-border bg-card/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm">
-          Arraste para mover · Scroll para zoom
+          Arraste para mover · Scroll para zoom · renderizando {visibleNodes.length}/{layout.nodes.length}
         </div>
       </div>
     </div>

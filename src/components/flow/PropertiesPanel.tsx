@@ -58,8 +58,7 @@ export function PropertiesPanel({ questionId }: { questionId: number }) {
           <span className="truncate text-sm font-medium text-foreground">{q.title}</span>
         </div>
       </div>
-      {/* Icon tabs */}
-      <div className="flex border-b border-border bg-secondary/30">
+      <div className="grid grid-cols-2 gap-3 border-b border-border bg-secondary/30 px-4 py-3">
         <IconTab
           active={tab === "question"}
           onClick={() => setTab("question")}
@@ -386,14 +385,21 @@ function IconTab({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold ${
+      className={`group flex aspect-square min-h-[7rem] flex-col items-center justify-center gap-2 rounded-[24px] border text-sm font-semibold transition-colors ${
         active
-          ? "border-primary bg-card text-primary"
-          : "border-transparent text-muted-foreground hover:bg-secondary"
+          ? "border-primary bg-card text-primary shadow-sm"
+          : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:bg-card hover:text-primary"
       }`}
+      aria-pressed={active}
     >
-      <Icon className="h-4 w-4" />
-      {label}
+      <span
+        className={`flex h-11 w-11 items-center justify-center rounded-[14px] transition-colors ${
+          active ? "bg-primary text-primary-foreground" : "bg-secondary text-primary group-hover:bg-primary/10"
+        }`}
+      >
+        <Icon className="h-6 w-6" />
+      </span>
+      <span className="max-w-full px-2 text-center leading-tight">{label}</span>
     </button>
   );
 }

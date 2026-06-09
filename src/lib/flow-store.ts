@@ -50,6 +50,62 @@ const initialQuestions: Question[] = [
   },
 ];
 
+const mockQuestionTopics = [
+  "registro da operadora",
+  "prazo de atendimento",
+  "cobertura assistencial",
+  "reembolso solicitado",
+  "boleto em aberto",
+  "portabilidade de carencias",
+  "cancelamento de contrato",
+  "rede credenciada",
+  "autorizacao de procedimento",
+  "protocolo de ouvidoria",
+  "vinculo do beneficiario",
+  "documentacao complementar",
+];
+
+function buildMockQuestions(count: number): Question[] {
+  const markers: AnswerMarker[] = ["positive", "negative", "warning", "normal"];
+
+  return Array.from({ length: count }, (_, index) => {
+    const id = index + 1;
+    const topic = mockQuestionTopics[index % mockQuestionTopics.length];
+    const answerCount = 2 + (id % 3);
+    const answers: Answer[] = Array.from({ length: answerCount }, (_, answerIndex) => {
+      const targetId = answerIndex === 0 ? id * 2 : answerIndex === 1 ? id * 2 + 1 : count + 1;
+      const isFinal = targetId > count;
+      const text =
+        answerIndex === 0
+          ? "Sim"
+          : answerIndex === 1
+            ? "Nao"
+            : answerIndex === 2
+              ? "Nao sei informar"
+              : "Encaminhar para analise";
+
+      return {
+        id: `a${answerIndex}`,
+        text,
+        target: isFinal ? "end" : targetId,
+        marker: markers[(id + answerIndex) % markers.length],
+        classificationId: isFinal ? (id % 2 === 0 ? "c-apto" : "c-presencial") : undefined,
+      };
+    });
+
+    return {
+      id,
+      title: `Pergunta mockada #${id} sobre ${topic}`,
+      description: `Pergunta de teste ${id} para validar navegacao, arvore e diagnostico com volume alto.`,
+      answers,
+      notes:
+        id % 25 === 0
+          ? [{ text: `Nota mockada vinculada a pergunta ${id}.`, visibility: "internal" }]
+          : undefined,
+    };
+  });
+}
+
 function buildFlow(qs: Question[]): Flow {
   const map: Record<number, Question> = {};
   qs.forEach((q) => (map[q.id] = q));
@@ -131,7 +187,7 @@ function nextId(flow: Flow): number {
 }
 
 export const useFlow = create<FlowState>((set, get) => ({
-  flow: buildFlow(initialQuestions),
+  flow: buildFlow(buildMockQuestions(1000)),
   setFlow: (f) => set({ flow: f }),
   updateQuestion: (id, patch) =>
     set((s) => ({
@@ -213,31 +269,13 @@ export const useFlow = create<FlowState>((set, get) => ({
     }));
     return id;
   },
-  generateLargeFlow: (n = 1000) => {
-    const qs: Record<number, Question> = {};
-    for (let i = 1; i <= n; i++) {
-      const answers: Answer[] = [];
-      const markers: AnswerMarker[] = ["positive", "negative", "warning", "normal"];
-      const numA = 2 + (i % 3);
-      for (let j = 0; j < numA; j++) {
-        const targetIdx = i + j + 1 + Math.floor(Math.random() * 3);
-        const target: number | "end" = targetIdx > n || Math.random() < 0.05 ? "end" : targetIdx;
-        answers.push({
-          id: `a${j}`,
-          text: `Opção ${String.fromCharCode(65 + j)}`,
-          target,
-          marker: markers[j % markers.length],
-        });
-      }
-      qs[i] = {
-        id: i,
-        title: `Pergunta gerada #${i}`,
-        description: `Pergunta de teste número ${i} do fluxo simulado.`,
-        answers,
-      };
-    }
-    set({ flow: { version: "teste-1000", questions: qs, rootId: 1 } });
-  },
+  generateLargeFlow: (n = 1000) =>
+    set({
+      flow: {
+        ...buildFlow(buildMockQuestions(n)),
+        version: `teste-${n}`,
+      },
+    }),
   bumpVersion: () =>
     set((s) => {
       const parts = s.flow.version.split("-")[0].split(".");
